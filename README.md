@@ -35,3 +35,7 @@ The directory `agent/` contains the implementation of the follower agent. It inc
 * `learning/` includes learning algorithms.
 * `model/` contains the architecture.
 * `simulation/` contains code for simulating gameplay.
+
+## TODO
+
+[ ] Add a section describing how to do different things with this code. E.g., running the game, or training an agent, etc.
