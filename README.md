@@ -5,27 +5,27 @@ The game, data, and agent implementation (architecture, learning, and evaluation
 
 Executing instructions in situated collaborative interactions. Alane Suhr, Claudia Yan, Jacob Schluger, Stanley Yu, Hadi Khader, Marwa Mouallem, Iris Zhang, and Yoav Artzi. To appear in EMNLP 2019. Print coming soon!
 
-# Cereal Bar Game
+## Cereal Bar Game
 
-## Unity Game
+### Unity Game
 
 The directory `game/` contains the implementation of the Cereal Bar game in C#/Unity. The game can be built both for standalone playing (e.g., for replaying recorded interactions) and as a webapp (e.g., for hosting on a webpage).
 
-## Webapp
+### Webapp
 
 The directory `webapp/` contains code to support hosting Cereal Bar on the web, either as a game between two human players or as a way to interact with a trained agent.
 
-# Interactions
+## Interaction Data
 
-## Recorded Data
+### Recorded Data
 
 The directory `data/` contains recorded interactions of games played between two human players (which we used for training and evaluation) and between a human player and a trained agent (results of our evaluation).
 
-## Crowdsourcing Utilities
+### Crowdsourcing Utilities
 
 The directory `crowdsourcing/` contains utilities that support collecting the interactions on Amazon Mechanical Turk (e.g., issuing HITs, downloading data).
 
-# Agent
+## Agent
 
 The directory `agent/` contains the implementation of the follower agent. It includes the following subdirectories:
 
