@@ -38,4 +38,4 @@ The directory `agent/` contains the implementation of the follower agent. It inc
 
 ## TODO
 
-[ ] Add a section describing how to do different things with this code. E.g., running the game, or training an agent, etc.
+- [ ] Add a section describing how to do different things with this code. E.g., running the game, or training an agent, etc.
