@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# TODO: Clean up the arguments here
+CUDA_VISIBLE_DEVICES=0 python3.7 main.py \
+                  --batch_size=16 \
+                  --instruction_embedding_size 64 \
+                  --encoder_hidden_size 64 \
+                  --encoder_num_layers 1 \
+                  --min_wordtype_occurrence=2 \
+                  --full_observability=True \
+                  --saved_game_dir="data/" \
+                  --game_state_filename="agent/preprocessed/game_states.pkl" \
+                  --update_type=SUPERVISED \
+                  --held_out_prop 0.05 \
+                  --save_dir="agent/experiments/" \
+                  --experiment_name="model" \
+                  --optimizer=ADAM \
+                  --initial_patience 10 \
+                  --property_embedding_size=32 \
+                  --patience_update_ratio 1.01 \
+                  --state_encoder_type=ALPHAGOZERO \
+                  --dropout=0.0 \
+                  --use_instructions=True \
+                  --use_states=True \
+                  --hex_learning_rate=0.0075 \
+                  --l2_coefficient_hex=0.000001 \
+                  --encoder_stride=2 \
+                  --num_image_channels=64 \
+                  --lingunet_after_conv_channels=48 \
+		          --conv_before_lingunet=False \
+                  --lingunet_after_text_channels=24 \
+		          --lingunet_conv_layers=2 \
+                  --encoder_depth=4 \
+                  --encoder_padding=1 \
+                  --build_style=SUM \
+                  --kernel_size=3 \
+                  --dense_representation=True  \
+                  --feature_size=16 \
+                  --presence_channels=False \
+                  --rotate_features=False \
+                  --simplify_instructions=False \
+                  --rotate_environment=True \
+                  --rotate_env_to_current_state=False \
+                  --model_type=CARDS_TO_REACH \
+                  --num_output_hidden_layers=0 \
+                  --pretrain_auxiliary_coeff_hex_properties=0. \
+                  --pretrain_auxiliary_coeff_cards=1. \
+                  --pretrain_auxiliary_coeff_trajectory=1. \
+                  --pretrain_auxiliary_coeff_final_cards=1. \
+                  --pretrain_auxiliary_coeff_avoid_locs=0.1 \
+                  --pretrain_auxiliary_coeff_impassable_locs=0.1 \
+                  --use_timewise_distributions=False \
+                  --traj_weight_by_time=True

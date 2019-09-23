@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# TODO: Clean up the arguments here
+CUDA_VISIBLE_DEVICES=0 python3.7 main.py --batch_size=16 \
+                  --instruction_embedding_size 64 \
+                  --encoder_hidden_size 64 \
+                  --encoder_num_layers 1 \
+                  --min_wordtype_occurrence=2 \
+                  --full_observability=True \
+                  --saved_game_dir="../mturk/games/data/" \
+                  --game_file_suffixes "1_27" "2_2" "2_3" "junior2_3" \
+                  --game_state_filename="preprocessed/game_states.pkl" \
+                  --update_type=SUPERVISED \
+                  --held_out_prop 0.05 \
+                  --leader_steps_per_turn=5 \
+                  --follower_steps_per_turn=10 \
+                  --save_dir="experiments/" \
+                  --experiment_name="action_no_final_cards_1" \
+                  --optimizer=ADAM \
+                  --initial_patience 10 \
+                  --patience_update_ratio 1.01 \
+                  --state_encoder_type=ALPHAGOZERO \
+                  --dropout=0.0 \
+                  --use_instructions=True \
+                  --use_states=True \
+                  --action_learning_rate=0.001 \
+                  --rotate_features=False \
+                  --rotate_environment=True \
+                  --rotate_env_to_current_state=False \
+                  --model_type=PATH_FROM_TRAJ_JOINT \
+                  --crop_size=5 \
+                  --use_recurrence=True \
+                  --traj_weight_by_time=True \
+                  --use_instructions=False \
+                  --use_timewise_distributions=False \
+                  --use_card_predictions=False \
+                  --use_avoid_locations=True \
+                  --use_trajectory=True \
+                  --use_impassable_locations=True \
+                  --conv_encode_map_distributions=True \
+                  --end_to_end=False \
+                  --output_seq_len=25
