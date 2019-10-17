@@ -9,9 +9,9 @@ from enum import Enum
 
 from agent.config import action_generator_args
 from agent.config import args
-from agent.config import instruction_encoder_args
+from agent.config import text_encoder_args
 from agent.config import state_encoder_args
-from agent.config import state_rep_args
+from agent.config import state_representation_args
 
 
 class Task(Enum):
@@ -46,10 +46,10 @@ class ModelArgs(args.Args):
                             type=float,
                             help='The amount of dropout to apply in the network.')
 
-        self._instruction_encoder_args: instruction_encoder_args.InstructionEncoderArgs = \
-            instruction_encoder_args.InstructionEncoderArgs(parser)
+        self._text_encoder_args: text_encoder_args.TextEncoderArgs = \
+            text_encoder_args.TextEncoderArgs(parser)
         self._state_encoder_args: state_encoder_args.StateEncoderArgs = state_encoder_args.StateEncoderArgs(parser)
-        self._state_rep_args: state_rep_args.StateRepresentationArgs = state_rep_args.StateRepresentationArgs(parser)
+        self._state_rep_args: state_representation_args.StateRepresentationArgs = state_representation_args.StateRepresentationArgs(parser)
         self._decoder_args: action_generator_args.ActionGeneratorArgs = action_generator_args.ActionGeneratorArgs(
             parser)
 
@@ -69,13 +69,13 @@ class ModelArgs(args.Args):
         self.check_initialized()
         return self._decoder_args
 
-    def get_state_rep_args(self) -> state_rep_args.StateRepresentationArgs:
+    def get_state_rep_args(self) -> state_representation_args.StateRepresentationArgs:
         self.check_initialized()
         return self._state_rep_args
 
-    def get_instruction_encoder_args(self) -> instruction_encoder_args.InstructionEncoderArgs:
+    def get_text_encoder_args(self) -> text_encoder_args.TextEncoderArgs:
         self.check_initialized()
-        return self._instruction_encoder_args
+        return self._text_encoder_args
 
     def get_state_encoder_args(self) -> state_encoder_args.StateEncoderArgs:
         self.check_initialized()
@@ -88,14 +88,14 @@ class ModelArgs(args.Args):
 
         self._state_encoder_args.interpret_args(parsed_args)
         self._state_rep_args.interpret_args(parsed_args)
-        self._instruction_encoder_args.interpret_args(parsed_args)
+        self._text_encoder_args.interpret_args(parsed_args)
         self._decoder_args.interpret_args(parsed_args)
 
         super(ModelArgs, self).interpret_args(parsed_args)
 
     def __str__(self) -> str:
         str_rep: str = '***Model arguments ***\nmodel type: %r\ndropout: %r' % (self._task, self._dropout)
-        str_rep += str(self._instruction_encoder_args) + '\n'
+        str_rep += str(self._text_encoder_args) + '\n'
         str_rep += str(self._state_encoder_args) + '\n' + str(self._state_rep_args) + '\n'
         str_rep += str(self._decoder_args) + '\n'
 
@@ -103,7 +103,7 @@ class ModelArgs(args.Args):
 
     def __eq__(self, other) -> bool:
         still_same: bool = self._task == other.get_task()
-        still_same = still_same and self._instruction_encoder_args == other.get_instruction_encoder_args()
+        still_same = still_same and self._text_encoder_args == other.get_text_encoder_args()
         still_same = still_same and self._state_encoder_args == other.get_state_encoder_args()
         still_same = still_same and self._decoder_args == other.get_decoder_args()
 
