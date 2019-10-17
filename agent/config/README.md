@@ -76,7 +76,6 @@ following arguments:
 * `full_observability`: Whether the environment representation contains full knowledge of the environment. _Default: 
 True_ **Note: partial observability (`full_observability == False`) is currently not supported.**
 * `property_embedding_size`: The size of the vector to encode each hex's property to. _Default: 32_
-* `build_style`: How to combine a hex's properties into a single vector. _Default: SUM_
 * `learn_absence_embeddings`: Whether to learn and use embeddings that correspond to the absence of a particular 
 object type. If False, the property type will be set to a zero-vector. _Default: True_
 
