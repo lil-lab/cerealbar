@@ -56,6 +56,17 @@ It defines the following arguments:
 pretraining the plan predictor separately, this should be set to `PLAN_PREDICTOR`._
 - `dropout`: of type `float` that specifies the dropout rate during training in the network. _Default: 0.0. This will
  be automatically set to 0.0 when running inference._
+ 
+### `TextEncoderArgs`
+
+This set of arguments specifies a configuration for encoding text, in this case instructions. It includes the 
+following arguments:
+
+* `encoder_cell_type`: The type of RNN cell to use for encoding, in string format. _Default: LSTM_
+* `word_embedding_size`: The word embedding size for tokens. _Default: 64_
+* `encoder_hidden_size`: The size of the hidden representation of tokens in the encoder RNN. _Default: 64_
+* `encoder_number_layers`: The number of layers in the encoder RNN. _Default: 1_
+* `encoder_bidirectional`: Whether to run the encoder RNN over the text in both directions. _Default: True_
 
 ### `StateEncoderArgs`
 
