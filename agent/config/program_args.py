@@ -14,6 +14,7 @@ from argparse import ArgumentParser, Namespace
 from enum import Enum
 
 from agent.config import args
+from agent.config import data_args
 from agent.config import eval_args
 from agent.config import game_args
 from agent.config import model_args
@@ -23,9 +24,9 @@ from agent.config import training_args
 
 class RunType(Enum):
     """ Different types of running the program: training, evaluation, or replaying recorded interactions. """
-    TRAIN: str = "TRAIN"
-    EVAL: str = "EVAL"
-    REPLAY: str = "REPLAY"
+    TRAIN: str = 'TRAIN'
+    EVAL: str = 'EVAL'
+    REPLAY: str = 'REPLAY'
 
     def __str__(self) -> str:
         return self.value
@@ -58,6 +59,7 @@ class ProgramArgs(args.Args):
         self._training_args: training_args.TrainingArgs = training_args.TrainingArgs(parser)
         self._replay_args: replay_args.ReplayArgs = replay_args.ReplayArgs(parser)
         self._eval_args: eval_args.EvalArgs = eval_args.EvalArgs(parser)
+        self._data_args: data_args.DataArgs = data_args.DataArgs(parser)
 
     def interpret_args(self, parsed_args: Namespace) -> None:
         self._run_type = parsed_args.run_type
@@ -78,23 +80,30 @@ class ProgramArgs(args.Args):
         return self._run_type
 
     def get_model_args(self) -> model_args.ModelArgs:
-        self.check_initialized()
+        self._model_args.check_initialized()
         return self._model_args
 
     def get_eval_args(self) -> eval_args.EvalArgs:
-        self.check_initialized()
+        self._eval_args.check_initialized()
         return self._eval_args
 
+    def get_data_args(self) -> data_args.DataArgs:
+        self._data_args.check_initialized()
+        return self._data_args
+
+    def set_data_args(self, new_args: data_args.DataArgs) -> None:
+        self._data_args = new_args
+
     def get_game_args(self) -> game_args.GameArgs:
-        self.check_initialized()
+        self._game_args.check_initialized()
         return self._game_args
 
     def get_training_args(self) -> training_args.TrainingArgs:
-        self.check_initialized()
+        self._training_args.check_initialized()
         return self._training_args
 
     def get_replay_args(self) -> replay_args.ReplayArgs:
-        self.check_initialized()
+        self._replay_args.check_initialized()
         return self._replay_args
 
     def set_model_args(self, new_args: model_args.ModelArgs):
@@ -165,7 +174,7 @@ def check_args(program_args: ProgramArgs, replace: bool = True):
     """
 
     # Load the ProgramArgs specified by program_args
-    save_dir: str = program_args.get_training_args().get_save_dir()
+    save_dir: str = program_args.get_training_args().get_save_directory()
     args_filename: str = os.path.join(save_dir, 'args.pkl')
 
     if not os.path.exists(args_filename):

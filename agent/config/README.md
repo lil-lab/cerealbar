@@ -148,8 +148,93 @@ components.
 * `pretrained_action_generator_filepath`: A filepath containing model parameters for a pretrained action generator.
 * `pretrained_plan_predictor_filepath`: A filepath containing model parameters for a pretrained plan predictor.
 
+## `TrainingArgs`
+
+This script provides an enumeration of optimizer types, called `OptimizerType`, with the following possible values:
+
+* `ADAM`: Adam optimizer (Kingma and Ba, 2014).
+* `ADAGRAD`: Adagrad optimizer.
+* `RMSPROP`: RMSProp optimizer.
+* `SGD`: SGD optimizer.
+
+This set of arguments specifies training options.
+
+Arguments for bookkeeping:
+
+* `save_directory`: The directory where the model parameters should be saved. A subdirectory of this will be 
+saved for this specific experiment, based on the `experiment_name`.
+
+Handling data during training.
+* `batch_size`: The batch size to use in training. _Default: 16_
+* `proportion_of_train_for_accuracy`: The proportion of training examples that should be used each epoch to 
+compute an estimate of training accuracy. _Default: 0.1_
+* `aggregate_examples`: Whether to aggregate error-recovery examples during training. _Default: False, but should be 
+set to True during fine-tuning_
+
+Arguments for training scheduling:
+* `initial_patience`: The initial number of epochs allowed without improvement on validation set before terminating 
+training, for pretraining. This will be updated each time the validation performance improves. _Default: 10_
+* `patience_update_ratio`: The factor by which the maximum patience will be updated upon validation improvement. 
+_Default: 1.01_
+* `stopping_metric`: The metric used to decide when to stop based on validation performance (during pretraining only). 
+_Default: 
+RELAXED_ENVIRONMENT_ACCURACY_
+* `validation_metrics`: A list of metrics that should be computed on the validation data after each epoch. _Default: 
+all metrics_
+* `training_metrics`: A list of metrics that should be computed on the training data after each epoch. _Default: all 
+metrics_
+
+Arguments for the optimizer:
+* `plan_prediction_learning_rate`: The learning rate of the model when pretraining the plan predictor. _Default: 0.0075_
+* `plan_prediction_l2_coefficient`: The L2 coefficient on the model parameters when pretraining the plan predictor. 
+_Default: 0.000001_
+* `action_generation_learning_rate`: The learning rate of the model when pretraining the action generator. _Default: 
+0.001_
+* `action_generation_l2_coefficient`: The L2 coefficient on the model parameters when pretraining the action 
+generator. _Default: 0._
+* `finetune_learning_rate`: The learning rate to use when finetuning the model components together. _Default: 0.001_
+* `finetune_l2_coefficient`: The L2 coefficient on the model parameters when finetuning the model components together
+. _Default: 0._
+* `max_gradient`: The maximum value gradients will be clipped to during training. _Default: 1._
+* `optimizer`: The type of optimizer to use. _Default: ADAM_
+
+
+Coefficients for auxiliary losses. The default values are `0.`, so they should be explicitly set according to which 
+stage of training. See our values below. 
+
+There are two sets of coefficient: one to be used during pretraining the plan predictor, and another to be used 
+during fine-tuning the whole network. There are auxiliary losses:
+
+* Intermediate goal probabilities: the probability of a position containing a goal location (independent of other 
+locations), as computed using an intermediate representation in the network before LingUNet is applied.
+* Final goal probabilities: the probability of a position containing a goal location (independent of other locations)
+, as computed on the output of the LingUNet.
+* Obstacle probabilities: the probability of a position containing an obstacle (independently of other locations).
+* Avoid probabilities: the probability of a position being one the agent should not reach (independently of other 
+locations), e.g., containing a card it should not disturb.
+* Trajectory distribution: joint distribution of probabilities of visiting each location in the environment (i.e., 
+probability it appears in the trajectory).
+* Implicit action probability (fine-tuning only): probability of the instruction requiring implicit actions, computed
+ at the output of each LingUNet layer.
+
+Below are the recommended values. All should be set to zero when pretraining the action generator. To remove an 
+auxiliary, set its coefficient to zero. We recommend using the same auxiliary coefficients during pretraining of the 
+plan predictor and fine-tuning the whole model.
+
+* `*_auxiliary_coefficient_intermediate_goal_probabilities=1.0`
+* `*_auxiliary_coefficient_final_goal_probabilities=1.0`
+* `*_auxiliary_coefficient_obstacle_probabilities=0.1`
+* `*_auxiliary_coefficient_avoid_probabilities=0.1`
+* `*_auxiliary_coefficient_trajectory_distribution=1.0` 
+* `finetune_auxiliary_coefficient_implicit_actions=0.7`
+
 
 # References
-Mapping Navigation Instructions to Continuous Control Actions with Position Visitation Prediction.
-Valts Blukis, Dipendra Misra, Ross A. Knepper, and Yoav Artzi
-In Proceedings of the Conference on Robot Learning (CoRL), 2018.
+Valts Blukis, Dipendra Misra, Ross A. Knepper, and Yoav Artzi. 
+Mapping navigation instructions to continuous control 
+actions with position visitation prediction.
+In CoRL, 2018.
+
+Diederik P. Kingma and Jimmy Ba. 
+Adam: A method for stochastic optimization. 
+In ICLR, 2014.

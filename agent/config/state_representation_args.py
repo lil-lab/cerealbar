@@ -10,16 +10,7 @@ from agent.config import args
 
 
 class StateRepresentationArgs(args.Args):
-    """ State representation arguments.
-
-    Members:
-        representation_type (ChannelType): The type of representation to use.
-        out_channels (List[int]): The output size (# of channels) for each convolutional layer.
-        kernel_sizes (List[int]): The sizes of the kernel for each convolutional layer.
-        strides (List[int]): The strides of each convolutional layer.
-    """
-    # TODO: should refactor out the parameters specific to the state representation.
-
+    """ State representation arguments."""
     def __init__(self, parser: ArgumentParser):
         super(StateRepresentationArgs, self).__init__()
 
