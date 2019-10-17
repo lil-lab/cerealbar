@@ -68,6 +68,18 @@ following arguments:
 * `encoder_number_layers`: The number of layers in the encoder RNN. _Default: 1_
 * `encoder_bidirectional`: Whether to run the encoder RNN over the text in both directions. _Default: True_
 
+### `StateRepresentationArgs`
+
+This set of arguments specifies how the environment state is represented before being encoded. It defines the 
+following arguments:
+
+* `full_observability`: Whether the environment representation contains full knowledge of the environment. _Default: 
+True_ **Note: partial observability (`full_observability == False`) is currently not supported.**
+* `property_embedding_size`: The size of the vector to encode each hex's property to. _Default: 32_
+* `build_style`: How to combine a hex's properties into a single vector. _Default: SUM_
+* `learn_absence_embeddings`: Whether to learn and use embeddings that correspond to the absence of a particular 
+object type. If False, the property type will be set to a zero-vector. _Default: True_
+
 ### `StateEncoderArgs`
 
 This set of arguments specifies the configuration for encoding
