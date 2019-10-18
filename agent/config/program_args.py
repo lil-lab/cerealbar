@@ -15,7 +15,7 @@ from enum import Enum
 
 from agent.config import args
 from agent.config import data_args
-from agent.config import eval_args
+from agent.config import evaluation_args
 from agent.config import game_args
 from agent.config import model_args
 from agent.config import replay_args
@@ -41,7 +41,7 @@ class ProgramArgs(args.Args):
         _game_args (GameArgs): The arguments for playing the game.
         _training_args (TrainingArgs): The arguments for training the agent.
         _replay_args (ReplayArgs): The arguments for replaying a static game.
-        _eval_args (EvalArgs): The arguments for evaluating a model.
+        _evaluation_args (EvalArgs): The arguments for evaluating a model.
     """
 
     def __init__(self, parser: ArgumentParser):
@@ -58,7 +58,7 @@ class ProgramArgs(args.Args):
         self._game_args: game_args.GameArgs = game_args.GameArgs(parser)
         self._training_args: training_args.TrainingArgs = training_args.TrainingArgs(parser)
         self._replay_args: replay_args.ReplayArgs = replay_args.ReplayArgs(parser)
-        self._eval_args: eval_args.EvalArgs = eval_args.EvalArgs(parser)
+        self._evaluation_args: evaluation_args.EvaluationArgs = evaluation_args.EvaluationArgs(parser)
         self._data_args: data_args.DataArgs = data_args.DataArgs(parser)
 
     def interpret_args(self, parsed_args: Namespace) -> None:
@@ -71,7 +71,7 @@ class ProgramArgs(args.Args):
         self._training_args.interpret_args(parsed_args)
         self._game_args.interpret_args(parsed_args)
         self._replay_args.interpret_args(parsed_args)
-        self._eval_args.interpret_args(parsed_args)
+        self._evaluation_args.interpret_args(parsed_args)
 
         super(ProgramArgs, self).interpret_args(parsed_args)
 
@@ -83,9 +83,9 @@ class ProgramArgs(args.Args):
         self._model_args.check_initialized()
         return self._model_args
 
-    def get_eval_args(self) -> eval_args.EvalArgs:
-        self._eval_args.check_initialized()
-        return self._eval_args
+    def get_evaluation_args(self) -> evaluation_args.EvaluationArgs:
+        self._evaluation_args.check_initialized()
+        return self._evaluation_args
 
     def get_data_args(self) -> data_args.DataArgs:
         self._data_args.check_initialized()
@@ -114,7 +114,7 @@ class ProgramArgs(args.Args):
 
     def __str__(self) -> str:
         str_rep: str = '*** Program arguments ***\n\trun type: %r\n\n%r\n%r' % (self._run_type, self._game_args,
-                                                                                self._eval_args)
+                                                                                self._evaluation_args)
 
         if self._run_type == RunType.TRAIN:
             str_rep += '\n%r' % self._training_args
@@ -128,7 +128,7 @@ class ProgramArgs(args.Args):
 
     def __eq__(self, other) -> bool:
         # We don't care about run type being the same, but do care about the model arguments.
-        still_same: bool = self._game_args == other.get_game_args() and self._eval_args == other.get_eval_args()
+        still_same: bool = self._game_args == other.get_game_args() and self._evaluation_args == other.get_evaluation_args()
         if self._run_type == RunType.TRAIN:
             still_same = still_same and self._training_args == other.get_training_args()
         if self._run_type not in (RunType.REPLAY, RunType.AUTOPLAY):

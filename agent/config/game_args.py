@@ -7,6 +7,7 @@ from agent.config import args
 
 class GameArgs(args.Args):
     """ Arguments for running games."""
+
     def __init__(self, parser: ArgumentParser):
         super(GameArgs, self).__init__()
 

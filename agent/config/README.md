@@ -274,6 +274,22 @@ _Default: 0.05_
 during training and evaluation. This is good for debugging as it reduces the dataset size, and generally first 
 instructions are a bit easier than later ones. _Default: -1 (uses all data)_
 
+## `EvaluationArgs`
+
+These arguments define how evaluation should be performed.
+
+* `use_unity`: Whether to use the Unity standalone to show inference.
+* `visualize_auxiliaries`: Whether to visualize predicted plans in the Unity standalone.
+* `save_file`: The name of the model save to load from.
+* `maximum_generation_length`: The maximum number of actions that the agent can generate. _Default: 25_
+* `metric_distance_threshold`: How far the agent can be from the goal location to score a point under 
+`RELAXED_ENVIRONMENT_ACCURACY`. _Default: 0 (must be in the correct spot)_
+* `reset_after_instruction`: Whether to reset the game state after an instruction has been completed. If False, 
+instructions in an interaction will be followed sequentially without resetting (allowing error propagation).
+* `split`: The split to evaluate on.
+* `examples_filename`: If `split` is `SPECIFIED`, this should be set to a filepath containing game IDs of examples to 
+run inference on, pulled from the training, development, or test set. This can be used for debugging.
+
 
 # References
 Valts Blukis, Dipendra Misra, Ross A. Knepper, and Yoav Artzi. 
