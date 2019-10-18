@@ -12,7 +12,7 @@ This is a superclass for all other argument classes.
 A program can have one of the following `RunType`:
 
 - `TRAIN`, which trains a model.
-- `EVAL`, which evaluates a trained model.
+- `EVALUATE`, which evaluates a trained model.
 - `REPLAY`, which replays a previously-recorded game.
 
 `ProgramArgs` is set of arguments defining how to run the main function. It
@@ -276,7 +276,8 @@ instructions are a bit easier than later ones. _Default: -1 (uses all data)_
 
 ## `EvaluationArgs`
 
-These arguments define how evaluation should be performed.
+These arguments define how evaluation should be performed. These arguments also apply to evaluation done during 
+training (e.g., on the validation set).
 
 * `use_unity`: Whether to use the Unity standalone to show inference.
 * `visualize_auxiliaries`: Whether to visualize predicted plans in the Unity standalone.

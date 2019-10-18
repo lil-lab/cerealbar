@@ -25,7 +25,7 @@ from agent.config import training_args
 class RunType(Enum):
     """ Different types of running the program: training, evaluation, or replaying recorded interactions. """
     TRAIN: str = 'TRAIN'
-    EVAL: str = 'EVAL'
+    EVALUATE: str = 'EVALUATE'
     REPLAY: str = 'REPLAY'
 
     def __str__(self) -> str:

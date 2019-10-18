@@ -16,7 +16,7 @@ class GameArgs(args.Args):
                             type=str,
                             help='The IP address where the game is being served.')
         parser.add_argument('--game_port',
-                            default=6000,
+                            default=3706,
                             type=int,
                             help='The port where the game is being served.')
         parser.add_argument('--initial_number_of_turns',
