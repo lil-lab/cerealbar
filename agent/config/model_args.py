@@ -18,10 +18,10 @@ class Task(Enum):
     """Various tasks that a model can have that affect its architecture."""
 
     # The plan predictor ONLY predicts distributions over the map.
-    PLAN_PREDICTOR: str = 'CARDS_TO_REACH'
+    PLAN_PREDICTOR: str = 'PLAN_PREDICTOR'
 
     # The action generator predicts actions, either using gold plan predictions, or predicted ones.
-    ACTION_GENERATOR: str = 'PATH_FROM_TRAJ_JOINT'
+    ACTION_GENERATOR: str = 'ACTION_GENERATOR'
 
     # A sequence-to-sequence baseline.
     SEQ2SEQ: str = 'SEQ2SEQ'

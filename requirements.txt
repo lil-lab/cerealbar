@@ -1,3 +1,7 @@
+certifi==2018.4.16
 nltk==3.4.5
+numpy==1.17.3
+pycrayon==0.5
+slackclient==2.0.1
 torch==1.0.1.post2
 torchvision==0.2.2.post3

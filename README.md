@@ -61,7 +61,40 @@ The directory `agent/` contains the implementation of the follower agent. It inc
 * `model/` contains the architecture.
 * `simulation/` contains code for simulating gameplay.
 
+### Training
+
+#### Setup
+
+1. Create the experiments directory (where model saves and preprocessed data will be stored), e.g., `mkdir 
+agent/experiments/`.
+1. Intermediate results (e.g., performance on the validation set) is logged using Crayon on the local machine. You 
+need to download and start the Crayon server. Follow 
+[these instructions from DyNet](https://github.com/clab/dynet/tree/master/examples/tensorboard).
+
+#### Notes
+
+Once a CrayonExperiment is created with a specific name, another with the same name cannot be created unless the old 
+one is deleted. Use the script `agent/scripts/remove_crayon_experiment.py` to delete a specific experiment by name.
+
+Additionally, once the arguments are saved to the experiment's directory, if the same experiment is started again, an
+ error will be thrown. If you need to restart an experiment, just remove the directory created for that experiment.
+
+
+#### Steps
+There are three steps to training a model:
+
+1. Pretraining the plan predictor.
+1. Pretraining the action generator.
+1. Fine-tuning both components together.
+
+To pretrain a plan predictor:
+
+1. If you would like to change any of the hyperparameters specified in `agent/config`, modify 
+`agent/scripts/pretrain_plan_predictor.sh`.
+1. Run pretraining: `sh agent/scripts/pretrain_plan_predictor.sh`.
+
 ## TODO
 
 - [ ] Add a section describing how to do different things with this code. E.g., running the game, or training an agent, etc.
 - [ ] Nicer data browser.
+- [ ] Get the Slack logging working again.

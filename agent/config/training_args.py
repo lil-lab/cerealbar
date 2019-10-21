@@ -36,6 +36,11 @@ class TrainingArgs(args.Args):
                             default='',
                             type=str,
                             help='The experiment name. A directory will be created under save_directory for it.')
+        parser.add_argument('--log_with_slack',
+                            default=False,
+                            type=lambda x: bool(strtobool(x)),
+                            help='Whether to log experiment details (starting, epoch accuracies, and ending) to a '
+                                 'Slack channel.')
         parser.add_argument('--validation_metrics',
                             default=[metric.Metric.RELAXED_ENVIRONMENT_ACCURACY,
                                      metric.Metric.SEQUENCE_ACCURACY,
@@ -171,6 +176,7 @@ class TrainingArgs(args.Args):
                             help='The coefficient on the implicit example prediction')
 
         self._batch_size: int = None
+        self._log_with_slack: bool = None
 
         self._initial_patience: float = None
         self._patience_update_factor: float = None
@@ -210,6 +216,10 @@ class TrainingArgs(args.Args):
         self._finetune_auxiliary_coefficient_implicit_actions: float = None
 
         self._aggregate_examples: bool = None
+
+    def log_with_slack(self) -> bool:
+        self.check_initialized()
+        return self._log_with_slack
 
     def get_batch_size(self) -> int:
         self.check_initialized()
@@ -329,6 +339,8 @@ class TrainingArgs(args.Args):
         self._save_directory = parsed_args.save_directory
         self._experiment_name = parsed_args.experiment_name
 
+        self._log_with_slack = parsed_args.log_with_slack
+
         self._proportion_of_train_for_accuracy = parsed_args.proportion_of_train_for_accuracy
 
         self._optimizer_type = parsed_args.optimizer
@@ -345,17 +357,28 @@ class TrainingArgs(args.Args):
         self._finetune_l2_coefficient = parsed_args.finetune_l2_coefficient
         self._finetune_learning_rate = parsed_args.finetune_learning_rate
 
-        self._pretrain_auxiliary_coefficient_intermediate_goal_probabilities = parsed_args.pretrain_auxiliary_coeff_cards
-        self._pretrain_auxiliary_coefficient_trajectory_distribution = parsed_args.pretrain_auxiliary_coeff_trajectory
-        self._pretrain_auxiliary_coefficient_final_goal_probabilities = parsed_args.pretrain_auxiliary_coeff_final_cards
-        self._pretrain_auxiliary_coefficient_obstacle_probabilities = parsed_args.pretrain_auxiliary_coeff_impassable_locs
-        self._pretrain_auxiliary_coefficient_avoid_probabilities = parsed_args.pretrain_auxiliary_coeff_avoid_locs
-        self._finetune_auxiliary_coefficient_intermediate_goal_probabilities = parsed_args.finetune_auxiliary_coeff_cards
-        self._finetune_auxiliary_coefficient_trajectory_distribution = parsed_args.finetune_auxiliary_coeff_trajectory
-        self._finetune_auxiliary_coefficient_final_goal_probabilities = parsed_args.finetune_auxiliary_coeff_final_cards
-        self._finetune_auxiliary_coefficient_obstacle_probabilities = parsed_args.finetune_auxiliary_coeff_impassable_locs
-        self._finetune_auxiliary_coefficient_avoid_probabilities = parsed_args.finetune_auxiliary_coeff_avoid_locs
-        self._finetune_auxiliary_coefficient_implicit_actions = parsed_args.finetune_auxiliary_coeff_implicit
+        self._pretrain_auxiliary_coefficient_intermediate_goal_probabilities = \
+            parsed_args.pretrain_auxiliary_coefficient_intermediate_goal_probabilities
+        self._pretrain_auxiliary_coefficient_trajectory_distribution = \
+            parsed_args.pretrain_auxiliary_coefficient_trajectory_distribution
+        self._pretrain_auxiliary_coefficient_final_goal_probabilities = \
+            parsed_args.pretrain_auxiliary_coefficient_final_goal_probabilities
+        self._pretrain_auxiliary_coefficient_obstacle_probabilities = \
+            parsed_args.pretrain_auxiliary_coefficient_obstacle_probabilities
+        self._pretrain_auxiliary_coefficient_avoid_probabilities = \
+            parsed_args.pretrain_auxiliary_coefficient_avoid_probabilities
+        self._finetune_auxiliary_coefficient_intermediate_goal_probabilities = \
+            parsed_args.finetune_auxiliary_coefficient_intermediate_goal_probabilities
+        self._finetune_auxiliary_coefficient_trajectory_distribution = \
+            parsed_args.finetune_auxiliary_coefficient_trajectory_distribution
+        self._finetune_auxiliary_coefficient_final_goal_probabilities = \
+            parsed_args.finetune_auxiliary_coefficient_final_goal_probabilities
+        self._finetune_auxiliary_coefficient_obstacle_probabilities = \
+            parsed_args.finetune_auxiliary_coefficient_obstacle_probabilities
+        self._finetune_auxiliary_coefficient_avoid_probabilities = \
+            parsed_args.finetune_auxiliary_coefficient_avoid_probabilities
+        self._finetune_auxiliary_coefficient_implicit_actions = \
+            parsed_args.finetune_auxiliary_coefficient_implicit_actions
 
         self._initial_patience = parsed_args.initial_patience
         self._patience_update_factor = parsed_args.patience_update_factor
@@ -364,9 +387,6 @@ class TrainingArgs(args.Args):
 
         if not self._save_directory or self._save_directory == '.':
             raise ValueError('Should not save in the current working directory')
-
-        # TODO: Move outside of training arguments
-        self._data_args.interpret_args(parsed_args)
 
         super(TrainingArgs, self).interpret_args(parsed_args)
 

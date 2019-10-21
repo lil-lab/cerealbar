@@ -105,3 +105,7 @@ venv.bak/
 
 # .idea
 .idea
+
+agent/experiments/
+
+*.app

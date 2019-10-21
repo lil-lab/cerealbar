@@ -163,6 +163,8 @@ Arguments for bookkeeping:
 
 * `save_directory`: The directory where the model parameters should be saved. A subdirectory of this will be 
 saved for this specific experiment, based on the `experiment_name`.
+* `experiment_name`: The name of the experiment to train.
+* `log_with_slack`: Whether to log experiment details (epoch accuracies and final evaluation) to a Slack workspace.
 
 Handling data during training.
 * `batch_size`: The batch size to use in training. _Default: 16_

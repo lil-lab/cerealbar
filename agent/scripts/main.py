@@ -4,10 +4,17 @@ from __future__ import absolute_import
 import os
 import logging
 import multiprocessing
+import torch
 
 from agent.config import util
 from agent.config import program_args
 from agent.simulation import replay
+from agent.learning import training
+
+if torch.cuda.device_count() >= 1:
+    DEVICE: torch.device = torch.device('cuda')
+else:
+    DEVICE: torch.device = torch.device('cpu')
 
 
 def main():
@@ -30,7 +37,7 @@ def main():
         logging.getLogger().addHandler(logging.StreamHandler())
         logging.info('Using device: %s', str(DEVICE))
 
-        train(args)
+        training.train(args)
     elif run_type == program_args.RunType.REPLAY:
         replay.replay(args.get_game_args(), args.get_replay_args())
     elif run_type == program_args.RunType.EVAL:

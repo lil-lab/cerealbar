@@ -133,7 +133,7 @@ class ActionGeneratorArgs(args.Args):
         self.check_initialized()
         return self._pretrained_action_generator_filepath
 
-    def pretrained_hex_predictor(self) -> bool:
+    def pretrained_plan_predictor(self) -> bool:
         self.check_initialized()
         return bool(self._pretrained_plan_predictor_filepath)
 
