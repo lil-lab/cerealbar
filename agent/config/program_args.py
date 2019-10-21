@@ -65,13 +65,16 @@ class ProgramArgs(args.Args):
         self._run_type = parsed_args.run_type
 
         # Interpret the sub-configs.
-        if self._run_type == RunType.TRAIN:
-            self._model_args.interpret_args(parsed_args)
 
-        self._training_args.interpret_args(parsed_args)
         self._game_args.interpret_args(parsed_args)
-        self._replay_args.interpret_args(parsed_args)
-        self._evaluation_args.interpret_args(parsed_args)
+        if self._run_type in {RunType.TRAIN, RunType.EVALUATE}:
+            self._model_args.interpret_args(parsed_args)
+            self._training_args.interpret_args(parsed_args)
+
+            if self._run_type == RunType.EVALUATE:
+                self._evaluation_args.interpret_args(parsed_args)
+        elif self._run_type == RunType.REPLAY:
+            self._replay_args.interpret_args(parsed_args)
 
         super(ProgramArgs, self).interpret_args(parsed_args)
 

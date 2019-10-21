@@ -329,7 +329,7 @@ class TrainingArgs(args.Args):
         self._save_directory = parsed_args.save_directory
         self._experiment_name = parsed_args.experiment_name
 
-        self._proportion_of_train_for_accuracy = parsed_args.prop_train_exs_for_acc
+        self._proportion_of_train_for_accuracy = parsed_args.proportion_of_train_for_accuracy
 
         self._optimizer_type = parsed_args.optimizer
 

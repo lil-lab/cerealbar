@@ -59,3 +59,9 @@ agent to take:
 
 The affects of agent actions on an environment are described
 in the `simulation/` directory.
+
+## State deltas
+
+A `StateDelta` contains information about a game that will change throughout gameplay, including the player locations
+ and rotations, and the cards. `state_delta.py` also contains utility functions for comparing different states and 
+ sets of cards.

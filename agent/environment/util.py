@@ -16,6 +16,14 @@ from agent.environment import rotation
 from agent.environment import structures
 from agent.environment import tree
 
+# The size of the hexes in Unity.
+HEX_WIDTH: float = 17.321
+HEX_DEPTH: float = 15.
+
+# The number of hexes (width and depth) in the Unity game.
+ENVIRONMENT_WIDTH: int = 25
+ENVIRONMENT_DEPTH: int = 25
+
 
 def interpret_card_info(raw_dict: List[Any],
                         hex_width: float,

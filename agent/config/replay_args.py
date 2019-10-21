@@ -20,8 +20,8 @@ class ReplayArgs(args.Args):
                             help='The ID of the game to replay.')
         parser.add_argument('--game_directory',
                             type=str,
-                            help='The directory containing the stored game information. All JSON files will be '
-                                 'prefixed with games_.')
+                            help='The directory containing the stored game information. All JSON files in this '
+                                 'directory will be used.')
         parser.add_argument('--speed',
                             type=float,
                             help='The speed to replay back each game, as a factor of the original speed.')

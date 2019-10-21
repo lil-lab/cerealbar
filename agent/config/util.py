@@ -5,14 +5,13 @@ Methods:
 """
 
 from argparse import ArgumentParser
+from agent.config import program_args
 
-from config.program_args import ProgramArgs
 
-
-def get_args() -> ProgramArgs:
+def get_args() -> program_args.ProgramArgs:
     """ Interprets command line arguments, returning them as a ProgramArgs."""
     parser: ArgumentParser = ArgumentParser(description='Train or evaluate a Cereal Bar agent.')
-    program_args: ProgramArgs = ProgramArgs(parser)
-    program_args.interpret_args(parser.parse_args())
+    args: program_args.ProgramArgs = program_args.ProgramArgs(parser)
+    args.interpret_args(parser.parse_args())
 
-    return program_args
+    return args

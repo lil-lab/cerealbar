@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 export EXPERIMENT_NAME="test_experiment_plan_predictor"
 
-CUDA_VISIBLE_DEVICES=0 python3.7 main.py \
+# TODO: Absolute import fixing
+CUDA_VISIBLE_DEVICES=0 python3.7 agent/scripts/main.py \
                   --saved_game_dir="data/" \
                   --game_state_filename="agent/preprocessed/game_states.pkl" \
                   --save_dir="agent/experiments/" \

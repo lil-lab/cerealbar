@@ -18,6 +18,7 @@ Functions:
     get_card_selection: Returns a CardSelection given a string value.
 
 """
+import random
 from enum import Enum
 from typing import List, Dict, Any, Tuple
 
@@ -193,6 +194,19 @@ class Card(environment_objects.EnvironmentObject):
 
     def __lt__(self, other) -> bool:
         return (self._position.x, self._position.y) < (other.get_position().x, other.get_position().y)
+
+
+def generate_random_card_properties() -> Card:
+    """Generates a card with random properties and unspecified position."""
+    card_properties: Tuple[CardCount, CardColor, CardShape] = random.choice(POSSIBLE_CARDS)
+
+    # Position/rotation are dummy values -- don't place the card yet!
+    return Card(position.Position(-1, -1),
+                CARD_ROTATION,
+                card_properties[1],
+                card_properties[0],
+                card_properties[2],
+                CardSelection.UNSELECTED)
 
 
 POSSIBLE_CARDS: List[Tuple[CardCount, CardColor, CardShape]] = []

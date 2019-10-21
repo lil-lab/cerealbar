@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 
-export GAME_ID="ENTER GAME ID HERE"
+export GAME_ID="aa786e30502245f8918a782437d6d95f"
 
-python3.7 main.py --run_type=REPLAY \
-                  --keep_track_of_turns=False \
-                  --realtime=True \
-                  --speed=0.2 \
-                  --game_directory="data/" \
-                  --saved_game_directory="data/" \
-                  --game_state_filename="agent/preprocessed/game_states.pkl" \
-                  --game_id=${GAME_ID}
+python -m agent.scripts.main \
+    --run_type=REPLAY \
+    --keep_track_of_turns=False \
+    --realtime=True \
+    --speed=0.2 \
+    --game_directory="data/" \
+    --game_id=${GAME_ID}
