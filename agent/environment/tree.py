@@ -6,7 +6,6 @@ Classes:
 """
 
 from enum import Enum
-from typing import List
 
 from agent.environment import environment_objects
 from agent.environment import position

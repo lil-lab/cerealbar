@@ -1,5 +1,6 @@
 """Utilities for laoding data."""
 
+import json
 import logging
 import os
 import pickle
@@ -9,12 +10,128 @@ from agent.config import game_args
 from agent.data import cereal_bar_game
 from agent.data import dataset_split
 from agent.data import game_dataset
+from agent.data import game_states
 from agent import util
 
-from typing import Dict
+from typing import Dict, List
 
 
 PRESAVED_DIRECTORY = 'agent/preprocessed/'
+
+
+def load_from_raw_data(data_arguments: data_args.DataArgs,
+                       game_arguments: game_args.GameArgs,
+                       splits: List[dataset_split.DatasetSplit],
+                       split_dir: str = "",
+                       randomly_split_trainval: bool = True) -> game_dataset.GameDataset:
+    """Loads games from a JSON file."""
+    train_games: Dict[str, cereal_bar_game.CerealBarGame] = dict()
+    dev_games: Dict[str, cereal_bar_game.CerealBarGame] = dict()
+    test_games: Dict[str, cereal_bar_game.CerealBarGame] = dict()
+
+    logging.info('Loading from json file...')
+    if dataset_split.DatasetSplit.TRAIN in splits \
+            or dataset_split.DatasetSplit.UPDATE in splits \
+            or dataset_split.DatasetSplit.VAL in splits \
+            or dataset_split.DatasetSplit.SPECIFIED in splits:
+        with open(data_arguments.get_split_filename(dataset_split.DatasetSplit.TRAIN)) as infile:
+            logging.info('Loading train data.')
+            for game_id, game in json.load(infile).items():
+                assert isinstance(game, dict)
+                train_games[game_id] = cereal_bar_game.CerealBarGame(game, data_arguments)
+    if dataset_split.DatasetSplit.DEV in splits or dataset_split.DatasetSplit.SPECIFIED in splits:
+        with open(data_arguments.get_split_filename(dataset_split.DatasetSplit.DEV)) as infile:
+            logging.info('Loading development data.')
+            for game_id, game in json.load(infile).items():
+                assert isinstance(game, dict)
+                dev_games[game_id] = cereal_bar_game.CerealBarGame(game, data_arguments)
+    if dataset_split.DatasetSplit.TEST in splits:
+        with open(data_arguments.get_split_filename(dataset_split.DatasetSplit.TEST)) as infile:
+            logging.info('Loading test data.')
+            for game_id, game in json.load(infile).items():
+                assert isinstance(game, dict)
+                test_games[game_id] = cereal_bar_game.CerealBarGame(game, data_arguments)
+
+    all_game_keys: List[str] = list(train_games.keys()) + list(dev_games.keys()) + list(test_games.keys())
+    logging.info('Loaded %r games' % len(all_game_keys))
+
+    # Load the tensor information
+    all_states: Dict[str, game_states.GameStates] = dict()
+    state_filename = data_arguments.get_game_state_filename()
+    logging.info('Done filtering, loading state file at %r...' % state_filename)
+
+    if os.path.exists(state_filename):
+        logging.info('Loading game states from %r' % state_filename)
+        with open(state_filename, 'rb') as infile:
+            all_states = pickle.load(infile)
+        logging.info('Loaded state file with %r games' % len(all_states))
+
+    # First, check if we need to add the games
+    num_missing: int = len([game_id for game_id in all_game_keys if game_id not in all_states])
+
+    # Match up the games that were saved
+    logging.info('Matching games with states...')
+    for game_id, game in train_games.items():
+        if game_id in all_states:
+            match_actions_with_states(game, all_states[game_id])
+    for game_id, game in dev_games.items():
+        if game_id in all_states:
+            match_actions_with_states(game, all_states[game_id])
+    for game_id, game in test_games.items():
+        if game_id in all_states:
+            match_actions_with_states(game, all_states[game_id])
+    logging.info('Matched games with states')
+
+    logging.info('train games: ' + str(len(train_games)))
+    logging.info('dev games: ' + str(len(dev_games)))
+    logging.info('test games: ' + str(len(test_games)))
+    logging.info(str(num_missing) + ' games are missing game info')
+    if num_missing > 0:
+        logging.info('Replaying these games.')
+        # Start the Unity server
+        server: ServerSocket = ServerSocket(game_arguments.get_ip_address(), game_arguments.get_port())
+        server.start_unity()
+
+        num_since_save: int = 0
+        num_saved: int = 0
+        with get_progressbar('replaying games', num_missing) as pbar:
+            for game_id in all_game_keys:
+                if game_id not in all_states:
+                    game: cereal_bar_game.CerealBarGame = None
+                    if game_id in train_games:
+                        game = train_games[game_id]
+                    elif game_id in dev_games:
+                        game = dev_games[game_id]
+                    elif game_id in test_games:
+                        game = test_games[game_id]
+                    if not game:
+                        raise ValueError('Did not find game ID ' + game_id + ' in any split')
+
+                    this_all_states: GameStates = get_all_states_from_replay(game, game_arguments, server)
+                    all_states[game_id] = this_all_states
+                    num_since_save += 1
+                    pbar.update(num_saved)
+                    num_saved += 1
+                if num_since_save > 0:
+                    # Save the game states again if we ran a new game
+                    with open(state_filename, 'wb') as ofile:
+                        pickle.dump(all_states, ofile)
+                    num_since_save = 0
+
+        server.close()
+
+    # Filter games which didn't get a game state
+    for game_id in list(train_games.keys()):
+        if game_id not in all_states:
+            train_games.pop(game_id)
+    for game_id in list(dev_games.keys()):
+        if game_id not in all_states:
+            dev_games.pop(game_id)
+    for game_id in list(test_games.keys()):
+        if game_id not in all_states:
+            test_games.pop(game_id)
+
+    return game_dataset.GameDataset(train_games, dev_games, test_games, data_arguments, split_dir, randomly_split_trainval)
 
 
 def load_presaved_data(data_arguments: data_args.DataArgs, split: dataset_split.DatasetSplit,
@@ -61,13 +178,11 @@ def load_data(split: dataset_split.DatasetSplit, data_arguments: data_args.DataA
             with open(os.path.join(PRESAVED_DIRECTORY, str(split), 'dataset.pkl'), 'rb') as infile:
                 dataset = pickle.load(infile)
     else:
-        # TODO: Test these functions
-        raise ValueError('Loading and processing game data from raw needs to be cleaned up!')
         logging.info('Generating presaved ' + str(split))
-        dataset: game_dataset.GameDataset = load_game_data(data_arguments,
-                                                           game_arguments,
-                                                           [split],
-                                                           randomly_split_trainval=False)
+        dataset: game_dataset.GameDataset = load_from_raw_data(data_arguments,
+                                                               game_arguments,
+                                                               [split],
+                                                               randomly_split_trainval=False)
         # Save the dataset per-example.
         logging.info('Saving...')
         dataset.save(split, PRESAVED_DIRECTORY)

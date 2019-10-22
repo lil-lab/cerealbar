@@ -21,12 +21,12 @@ class DataArgs(args.Args):
                             type=lambda x: bool(strtobool(x)),
                             help='Whether to take into account the case of characters in the instructions.')
         parser.add_argument('--minimum_wordtype_occurrence',
-                            default=0,
+                            default=2,
                             type=int,
                             help='The minimum number of times a word type must occur in the training set '
                                  'to be in the vocabulary.')
         parser.add_argument('--validation_proportion',
-                            default=0,
+                            default=0.05,
                             type=float,
                             help='The proportion of games to hold out from the official training set during training '
                                  '(NOT the dev set).')
@@ -82,6 +82,7 @@ class DataArgs(args.Args):
         super(DataArgs, self).interpret_args(parsed_args)
 
     def __str__(self) -> str:
+        print(self._initialized)
         str_rep: str = '*** Data arguments ***' \
                        '\n\tGame directory: %r' \
                        '\n\tGame state filename: %r' \

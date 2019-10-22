@@ -130,7 +130,8 @@ class ProgramArgs(args.Args):
 
     def __eq__(self, other) -> bool:
         # We don't care about run type being the same, but do care about the model arguments.
-        still_same: bool = self._game_args == other.get_game_args() and self._evaluation_args == other.get_evaluation_args()
+        still_same: bool = (self._game_args == other.get_game_args() and self._evaluation_args ==
+                            other.get_evaluation_args())
         if self._run_type == RunType.TRAIN:
             still_same = still_same and self._training_args == other.get_training_args()
         if self._run_type not in (RunType.REPLAY, RunType.AUTOPLAY):

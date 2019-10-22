@@ -16,7 +16,7 @@ class Args(ABC):
     """
 
     def __init__(self):
-        self.initialized: bool = False
+        self._initialized: bool = False
 
     def interpret_args(self, parsed_args: Namespace) -> None:
         """ Interprets the arguments included in the parsed command line arguments.
@@ -24,7 +24,7 @@ class Args(ABC):
         Inputs:
             parsed_args (Namespace): The parsed command line arguments.
         """
-        self.initialized = True
+        self._initialized = True
 
     def is_initialized(self) -> bool:
         """ Returns whether these arguments have been initialized.
@@ -32,7 +32,7 @@ class Args(ABC):
         Returns:
             True if initialized; false otherwise.
         """
-        return self.initialized
+        return self._initialized
 
     def check_initialized(self) -> None:
         """ Raises a ValueError if not initialized. """
