@@ -9,6 +9,7 @@ from agent.config import model_args
 from agent.config import program_args
 from agent.config import training_args
 from agent.data import dataset_split
+from agent.data import loading
 from agent.learning import util
 
 SLACK_CHANNEL: str = ''
@@ -39,8 +40,8 @@ def train(args: program_args.ProgramArgs) -> None:
     program_args.save_args(args, training_arguments.get_save_directory())
 
     # Load the data.
-    train_dataset = load_data(dataset_split.DatasetSplit.TRAIN, training_arguments, args.get_game_args())
-    dev_dataset = load_data(dataset_split.DatasetSplit.DEV, training_arguments, args.get_game_args())
+    train_dataset = loading.load_data(dataset_split.DatasetSplit.TRAIN, args.get_data_args(), args.get_game_args())
+    dev_dataset = loading.load_data(dataset_split.DatasetSplit.DEV, args.get_data_args(), args.get_game_args())
 
     dataset = GameDataset(train_dataset.get_games(dataset_split.DatasetSplit.TRAIN),
                           dev_dataset.get_games(dataset_split.DatasetSplit.DEV),

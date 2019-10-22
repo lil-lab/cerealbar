@@ -70,9 +70,9 @@ class ProgramArgs(args.Args):
         if self._run_type in {RunType.TRAIN, RunType.EVALUATE}:
             self._model_args.interpret_args(parsed_args)
             self._training_args.interpret_args(parsed_args)
+            self._data_args.interpret_args(parsed_args)
 
-            if self._run_type == RunType.EVALUATE:
-                self._evaluation_args.interpret_args(parsed_args)
+            self._evaluation_args.interpret_args(parsed_args)
         elif self._run_type == RunType.REPLAY:
             self._replay_args.interpret_args(parsed_args)
 
@@ -116,18 +116,17 @@ class ProgramArgs(args.Args):
         self._training_args = new_args
 
     def __str__(self) -> str:
-        str_rep: str = '*** Program arguments ***\n\trun type: %r\n\n%r\n%r' % (self._run_type, self._game_args,
-                                                                                self._evaluation_args)
+        str_rep: str = '*** Program arguments ***\n\trun type: %r\n\n%r' % (str(self._run_type),
+                                                                            str(self._game_args))
 
-        if self._run_type == RunType.TRAIN:
-            str_rep += '\n%r' % self._training_args
+        if self._run_type in {RunType.TRAIN, RunType.EVALUATE}:
+            str_rep += '\n%r' % str(self._data_args)
+            str_rep += '\n%r' % str(self._model_args)
+            str_rep += '\n%r' % str(self._evaluation_args)
+        elif self._run_type == RunType.REPLAY:
+            str_rep += '\n%r' % str(self._replay_args)
 
-        if self._run_type == RunType.REPLAY:
-            str_rep += '\n%r' % self._replay_args
-        else:
-            str_rep += '\n%r' % self._model_args
-
-        return str_rep
+        return str_rep.replace('\\n', '\n').replace('\\t', '\t').replace('"', '')
 
     def __eq__(self, other) -> bool:
         # We don't care about run type being the same, but do care about the model arguments.

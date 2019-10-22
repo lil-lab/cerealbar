@@ -24,17 +24,19 @@ def main():
 
     run_type: program_args.RunType = args.get_run_type()
 
-    logging.getLogger('requests').setLevel(logging.WARNING)
+    logging.basicConfig(filename=os.path.join(args.get_training_args().get_save_directory(), 'train.log'),
+                        level=logging.DEBUG)
+    logging.getLogger().addHandler(logging.StreamHandler())
+
     logging.getLogger('urllib3').setLevel(logging.WARNING)
-    logging.getLogger('matplotlib').setLevel(logging.WARNING)
-    logging.getLogger('pyscreenshot').setLevel(logging.WARNING)
-    logging.getLogger('slack').setLevel(logging.WARNING)
+
+#    logging.getLogger('requests').setLevel(logging.WARNING)
+#    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+#    logging.getLogger('pyscreenshot').setLevel(logging.WARNING)
+#    logging.getLogger('slack').setLevel(logging.WARNING)
 
     logging.info(args)
     if run_type == program_args.RunType.TRAIN:
-        logging.basicConfig(filename=os.path.join(args.get_training_args().get_save_directory(), 'train.log'),
-                            level=logging.DEBUG)
-        logging.getLogger().addHandler(logging.StreamHandler())
         logging.info('Using device: %s', str(DEVICE))
 
         training.train(args)

@@ -43,7 +43,7 @@ class StateDelta:
                             and self.leader.get_rotation() == other.leader.get_rotation()
         follower_same: bool = (self.follower.get_position() == other.follower.get_position()
                                and self.follower.get_rotation() == other.follower.get_rotation())
-        cards_same = compare_card_states(self.cards, other.cards)
+        cards_same = card_states_equal(self.cards, other.cards)
 
         return leader_same and cards_same and follower_same
 
@@ -100,7 +100,7 @@ def card_list_difference(cards1: List[card.Card], cards2: List[card.Card]) -> Li
     return [test_card for i, test_card in enumerate(cards1) if in_cards2[i]]
 
 
-def compare_card_states(card_list_1: List[card.Card], card_list_2: List[card.Card]) -> bool:
+def card_states_equal(card_list_1: List[card.Card], card_list_2: List[card.Card]) -> bool:
     """Compares lists of cards and returns whether they are the same."""
     if len(card_list_1) != len(card_list_2):
         return False
@@ -218,7 +218,7 @@ def outdated_info(previous_state_delta: StateDelta,
                     len(set([selected_card.get_shape() for selected_card in selected_cards])) == 3):
                 # Made a set! Make sure that (1) the cards that were removed were the ones comprising the set,
                 # and there were three new cards added.
-                removed_correct_cards = compare_card_states(selected_cards, removed_cards)
+                removed_correct_cards = card_states_equal(selected_cards, removed_cards)
 
                 correct_card_config = removed_correct_cards
                 if need_new_set_cards:

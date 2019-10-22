@@ -85,7 +85,7 @@ class EvaluationArgs(args.Args):
 
     def interpret_args(self, parsed_args: Namespace):
         self._save_file = parsed_args.save_file
-        self._maximum_generation_length = parsed_args.output_sequence_length
+        self._maximum_generation_length = parsed_args.maximum_generation_length
         self._reset_after_instruction = parsed_args.reset_after_instruction
         self._use_unity = parsed_args.use_unity
         self._split = parsed_args.split
@@ -95,7 +95,7 @@ class EvaluationArgs(args.Args):
         if self._visualize_auxiliaries and not self._use_unity:
             raise ValueError('Need to use Unity to visualize auxiliaries.')
 
-        if (self._split == dataset_split.DatasetSplit.SPECIFIED) != (self._examples_filename != ''):
+        if (self._split == dataset_split.DatasetSplit.SPECIFIED) != bool(self._examples_filename):
             raise ValueError('Examples filename must only be provided when dataset split is specified, '
                              'and must be provided in that case.')
 

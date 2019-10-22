@@ -153,7 +153,7 @@ class Game(ABC):
                 else:
                     expected_set: List[card.Card] = self._expected_sets[self._current_set_index][0]
                     new_cards: List[card.Card] = self._expected_sets[self._current_set_index][1]
-                    was_expected_set = state_delta.compare_card_states(expected_set, new_set)
+                    was_expected_set = state_delta.card_states_equal(expected_set, new_set)
 
                 if was_expected_set:
                     self._add_cards(new_cards)
@@ -336,14 +336,14 @@ class Game(ABC):
     def _check_if_state_expected(self, card_list: List[card.Card]):
         card_set_same = \
             self._current_state_index < len(self._expected_states) and \
-            state_delta.compare_card_states(self._expected_states[self._current_state_index], card_list)
+            state_delta.card_states_equal(self._expected_states[self._current_state_index], card_list)
         if not card_set_same:
             # Compare with the next one -- maybe it triggered a card or made a set.
             self._current_state_index += 1
 
             next_card_set_same = \
                 self._current_state_index < len(self._expected_states) \
-                and state_delta.compare_card_states(self._expected_states[self._current_state_index], card_list)
+                and state_delta.card_states_equal(self._expected_states[self._current_state_index], card_list)
             if not next_card_set_same:
                 self._valid_state = False
 

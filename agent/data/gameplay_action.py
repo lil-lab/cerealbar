@@ -35,6 +35,32 @@ if TYPE_CHECKING:
 DATE_FORMAT: str = '%Y-%m-%d %H:%M:%S.%f'
 
 
+def process_actions(json_actions: List[Dict[str, Any]],
+                    data_arguments: data_args.DataArgs) -> List[GameplayAction]:
+    actions: List[GameplayAction] = []
+
+    for action in json_actions:
+        if action['type'] == 'movement' and action['move_id'] < 0:
+            continue
+        resulting_action: GameplayAction = process_action(action, data_arguments)
+        if resulting_action:
+            actions.append(resulting_action)
+    return actions
+
+
+def process_action(action: Dict[str, Any],
+                   data_arguments: data_args.DataArgs) -> GameplayAction:
+    if action['type'] == 'movement':
+        return MovementAction(action)
+    elif action['type'] == 'instruction':
+        return InstructionAction(action, data_arguments)
+    elif action['type'] == 'finish command':
+        return FinishCommandAction(action)
+    elif action['type'] == 'end turn':
+        # Don't keep track of begin turn actions, as these will just happen automatically.
+        return EndTurnAction(action)
+
+
 def tokenize(text: str, case_sensitive: bool) -> List[str]:
     return nltk.word_tokenize(text) if case_sensitive else nltk.word_tokenize(text.lower())
 

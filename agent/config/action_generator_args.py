@@ -203,29 +203,29 @@ class ActionGeneratorArgs(args.Args):
 
     def __str__(self) -> str:
         str_rep: str = '*** Action Generator arguments ***' \
-                       '\nUse recurrence? %r ' % self.use_recurrence()
+                       '\n\tUse recurrence? %r ' % self.use_recurrence()
         if self.use_recurrence():
             str_rep += '\n\tAction embedding size: %r' \
                        '\n\tHidden size: %r' \
                        '\n\tNumber of layers: %r\n' % (self._action_embedding_size, self._hidden_size, self._num_layers)
 
-        str_rep += '\nUse goal probabilities? %r' \
-                   '\nUse avoid probabilities? %r' \
-                   '\nUse obstacle probabilities? %r' \
-                   '\nUse trajectory distribution? %r' % (self.use_goal_probabilities(),
+        str_rep += '\n\tUse goal probabilities? %r' \
+                   '\n\tUse avoid probabilities? %r' \
+                   '\n\tUse obstacle probabilities? %r' \
+                   '\n\tUse trajectory distribution? %r' % (self.use_goal_probabilities(),
                                                           self.use_avoid_probabilities(),
                                                           self.use_obstacle_probabilities(),
                                                           self.use_trajectory_distribution())
         if self.use_trajectory_distribution():
-            str_rep += 'Weight trajectory by time? %r\n' % self._weight_trajectory_by_time
+            str_rep += '\n\tWeight trajectory by time? %r\n' % self._weight_trajectory_by_time
 
-        str_rep += '\nConvolution encoding of map distributions? %r' \
-                   '\nMap encoding internal size: %r' \
-                   '\nCrop size: %r' % (self._convolution_encode_map_distributions, self._state_internal_size,
+        str_rep += '\n\tConvolution encoding of map distributions? %r' \
+                   '\n\tMap encoding internal size: %r' \
+                   '\n\tCrop size: %r' % (self._convolution_encode_map_distributions, self._state_internal_size,
                                         self._crop_size)
-        str_rep += '\n\nTrain end to end? %r' \
-                   '\nLoading plan predictor from: %r' \
-                   '\nLoading action generator from: %r' % (self.end_to_end(),
+        str_rep += '\n\n\tTrain end to end? %r' \
+                   '\n\tLoading plan predictor from: %r' \
+                   '\n\tLoading action generator from: %r' % (self.end_to_end(),
                                                             self.pretrained_plan_predictor_filepath(),
                                                             self.pretrained_action_generator_filepath())
 

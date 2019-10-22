@@ -7,8 +7,8 @@ Classes:
 from argparse import ArgumentParser, Namespace
 from distutils.util import strtobool
 
-from agent.model.utilities import initialization
 from agent.config import args
+from agent.model.utilities import initialization
 
 
 class StateEncoderArgs(args.Args):
@@ -145,26 +145,26 @@ class StateEncoderArgs(args.Args):
 
     def __str__(self) -> str:
         str_rep: str = '*** State encoder arguments ***' \
-                       '\nConvolution stride: %r' \
-                       '\nConvolution kernel size: %r' \
-                       '\nConvolution padding: %r' \
-                       '\nConvolution depth (number of layers): %r' \
+                       '\n\tConvolution stride: %r' \
+                       '\n\tConvolution kernel size: %r' \
+                       '\n\tConvolution padding: %r' \
+                       '\n\tConvolution depth (number of layers): %r' \
                        '\n\nVPN specific arguments...' \
-                       '\nNumber of output hidden layers: %r' \
-                       '\nConvolution initialization: %r' \
-                       '\nNumber of channels after initial convolutions: %r' \
-                       '\nNumber of channels after text-based convolutions: %r' \
-                       '\nNumber of convolution operations in each LingUNet layer: %r' \
-                       '\nNormalize after convolutions? %r' \
-                       '\nNonlinearities after convolutions? %r' % (self._encoder_stride, self._kernel_size,
-                                                                    self._encoder_padding, self._encoder_depth,
-                                                                    self._vpn_num_output_hidden_layers,
-                                                                    self._vpn_convolution_initialization,
-                                                                    self._lingunet_after_convolution_channels,
-                                                                    self._lingunet_after_text_channels,
-                                                                    self._lingunet_convolution_layers,
-                                                                    self._lingunet_normalize,
-                                                                    self._lingunet_nonlinearities)
+                       '\n\tNumber of output hidden layers: %r' \
+                       '\n\tConvolution initialization: %r' \
+                       '\n\tNumber of channels after initial convolutions: %r' \
+                       '\n\tNumber of channels after text-based convolutions: %r' \
+                       '\n\tNumber of convolution operations in each LingUNet layer: %r' \
+                       '\n\tNormalize after convolutions? %r' \
+                       '\n\tNonlinearities after convolutions? %r' % (self._encoder_stride, self._kernel_size,
+                                                                      self._encoder_padding, self._encoder_depth,
+                                                                      self._vpn_num_output_hidden_layers,
+                                                                      self._vpn_convolution_initialization,
+                                                                      self._lingunet_after_convolution_channels,
+                                                                      self._lingunet_after_text_channels,
+                                                                      self._lingunet_convolution_layers,
+                                                                      self._lingunet_normalize,
+                                                                      self._lingunet_nonlinearities)
 
         return str_rep
 

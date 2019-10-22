@@ -94,7 +94,7 @@ class ModelArgs(args.Args):
         super(ModelArgs, self).interpret_args(parsed_args)
 
     def __str__(self) -> str:
-        str_rep: str = '***Model arguments ***\nmodel type: %r\ndropout: %r' % (self._task, self._dropout)
+        str_rep: str = '***Model arguments ***\nmodel type: %r\ndropout: %r\n\n' % (self._task, self._dropout)
         str_rep += str(self._text_encoder_args) + '\n'
         str_rep += str(self._state_encoder_args) + '\n' + str(self._state_rep_args) + '\n'
         str_rep += str(self._decoder_args) + '\n'
