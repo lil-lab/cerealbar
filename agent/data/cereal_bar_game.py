@@ -4,12 +4,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from agent.data import gameplay_action
+from agent.environment import environment_objects
 from agent.environment import state_delta
 
 if TYPE_CHECKING:
     from agent.data import instruction_example
     from typing import Any, Dict, List, Tuple
-    from agent.environment import environment_objects
     from agent.config import data_args
     from agent.environment import card
     from agent.environment import position

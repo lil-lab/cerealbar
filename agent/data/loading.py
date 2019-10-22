@@ -4,19 +4,34 @@ import json
 import logging
 import os
 import pickle
+from typing import Dict, List
 
+from agent import util
 from agent.config import data_args
 from agent.config import game_args
 from agent.data import cereal_bar_game
 from agent.data import dataset_split
 from agent.data import game_dataset
 from agent.data import game_states
-from agent import util
-
-from typing import Dict, List
-
+from agent.data import gameplay_action
 
 PRESAVED_DIRECTORY = 'agent/preprocessed/'
+
+
+def match_actions_with_states(game: cereal_bar_game.CerealBarGame, states: game_states.GameStates):
+    """Matches the states (environment and cards) with the actions taken by both players."""
+    game_info_idx: int = 0
+    game.set_hexes(states.hexes)
+    game.set_objects(states.objects)
+    for i, action in enumerate(game.get_actions()):
+        # Every time a movement is taken aligns with a game state in `states`.
+        if isinstance(action, gameplay_action.MovementAction):
+            game.set_action_state(i,
+                                  states.state_deltas[game_info_idx],
+                                  posterior_info=states.state_deltas[game_info_idx + 1])
+            game_info_idx += 1
+        elif isinstance(action, gameplay_action.FinishCommandAction):
+            game.set_action_state(i, states.state_deltas[game_info_idx])
 
 
 def load_from_raw_data(data_arguments: data_args.DataArgs,
@@ -32,7 +47,7 @@ def load_from_raw_data(data_arguments: data_args.DataArgs,
     logging.info('Loading from json file...')
     if dataset_split.DatasetSplit.TRAIN in splits \
             or dataset_split.DatasetSplit.UPDATE in splits \
-            or dataset_split.DatasetSplit.VAL in splits \
+            or dataset_split.DatasetSplit.VALIDATION in splits \
             or dataset_split.DatasetSplit.SPECIFIED in splits:
         with open(data_arguments.get_split_filename(dataset_split.DatasetSplit.TRAIN)) as infile:
             logging.info('Loading train data.')
@@ -58,7 +73,6 @@ def load_from_raw_data(data_arguments: data_args.DataArgs,
     # Load the tensor information
     all_states: Dict[str, game_states.GameStates] = dict()
     state_filename = data_arguments.get_game_state_filename()
-    logging.info('Done filtering, loading state file at %r...' % state_filename)
 
     if os.path.exists(state_filename):
         logging.info('Loading game states from %r' % state_filename)
@@ -82,11 +96,14 @@ def load_from_raw_data(data_arguments: data_args.DataArgs,
             match_actions_with_states(game, all_states[game_id])
     logging.info('Matched games with states')
 
-    logging.info('train games: ' + str(len(train_games)))
-    logging.info('dev games: ' + str(len(dev_games)))
-    logging.info('test games: ' + str(len(test_games)))
+    logging.info('Train games: ' + str(len(train_games)))
+    logging.info('Dev games: ' + str(len(dev_games)))
+    logging.info('Test games: ' + str(len(test_games)))
     logging.info(str(num_missing) + ' games are missing game info')
+
     if num_missing > 0:
+        raise ValueError('Currently, replaying for creating the game_states.pkl file is not supported.\nInstead, '
+                         'please use agent/preprocessed/game_states.pkl as provided in the original repository.')
         logging.info('Replaying these games.')
         # Start the Unity server
         server: ServerSocket = ServerSocket(game_arguments.get_ip_address(), game_arguments.get_port())
@@ -130,8 +147,13 @@ def load_from_raw_data(data_arguments: data_args.DataArgs,
     for game_id in list(test_games.keys()):
         if game_id not in all_states:
             test_games.pop(game_id)
+    logging.info('After computing game states:\nTrain games: %r\nDev games: %r\nTest games: %r' % (len(train_games),
+                                                                                                   len(dev_games),
+                                                                                                   len(test_games)))
 
-    return game_dataset.GameDataset(train_games, dev_games, test_games, data_arguments, split_dir, randomly_split_trainval)
+    # Create the dataset.
+    return game_dataset.GameDataset(train_games, dev_games, test_games, data_arguments, split_dir,
+                                    randomly_split_trainval)
 
 
 def load_presaved_data(data_arguments: data_args.DataArgs, split: dataset_split.DatasetSplit,
@@ -152,6 +174,8 @@ def load_presaved_data(data_arguments: data_args.DataArgs, split: dataset_split.
         for filename in os.listdir(save_dir):
             pbar.update(len(examples_dict))
             if filename.endswith('.pkl') and filename != 'args.pkl':
+                if split == dataset_split.DatasetSplit.TRAIN and filename == 'dataset.pkl':
+                    continue
                 example_id: str = filename.split('.')[0]
                 with open(os.path.join(save_dir, filename), 'rb') as infile:
                     example: cereal_bar_game.CerealBarGame = pickle.load(infile)
@@ -178,7 +202,7 @@ def load_data(split: dataset_split.DatasetSplit, data_arguments: data_args.DataA
             with open(os.path.join(PRESAVED_DIRECTORY, str(split), 'dataset.pkl'), 'rb') as infile:
                 dataset = pickle.load(infile)
     else:
-        logging.info('Generating presaved ' + str(split))
+        logging.info('Generating data for ' + str(split))
         dataset: game_dataset.GameDataset = load_from_raw_data(data_arguments,
                                                                game_arguments,
                                                                [split],

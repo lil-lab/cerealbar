@@ -7,8 +7,8 @@ import random
 from typing import Dict, List, Set
 
 from agent.config import data_args
-from agent.data import dataset_split
 from agent.data import cereal_bar_game
+from agent.data import dataset_split
 from agent.data import instruction_example
 
 
@@ -29,14 +29,14 @@ class GameDataset:
 
         if not presaved:
             self._train_examples: Dict[str, instruction_example.InstructionExample] = \
-                construct_examples(self._train_games,
-                                   data_arguments.get_maximum_instruction_index())
+                instruction_example.construct_examples(self._train_games,
+                                                       data_arguments.get_maximum_instruction_index())
             self._dev_examples: Dict[str, instruction_example.InstructionExample] = \
-                construct_examples(self._dev_games,
-                                   data_arguments.get_maximum_instruction_index())
+                instruction_example.construct_examples(self._dev_games,
+                                                       data_arguments.get_maximum_instruction_index())
             self._test_examples: Dict[str, instruction_example.InstructionExample] = \
-                construct_examples(self._test_games,
-                                   data_arguments.get_maximum_instruction_index())
+                instruction_example.construct_examples(self._test_games,
+                                                       data_arguments.get_maximum_instruction_index())
         else:
             self._train_examples: Dict[str, instruction_example.InstructionExample] = dict()
             for game_id, game in self._train_games.items():

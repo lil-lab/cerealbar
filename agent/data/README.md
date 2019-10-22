@@ -29,3 +29,10 @@ the follower to follow this instruction.
 method by which they ended it).
 * `FinishCommandAction` is an action taken only by the follower indicating they have marked a command as complete. It
  also includes the state of the world when the instruction was completed.
+ 
+ 
+## TODO
+
+- [ ] Documentation on various objects (CerealBarGame, GameDataset, GameStates, InstructionExample) as well as data 
+loading (plus 
+the saved game_states.pkl file).

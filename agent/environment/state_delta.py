@@ -1,6 +1,6 @@
 """Contains the StateDelta class for keeping track of differences between game states after taking actions."""
 from dataclasses import dataclass
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Optional, Tuple
 
 from agent.environment import agent
 from agent.environment import agent_actions
@@ -85,6 +85,26 @@ def set_made(prev_cards: List[card.Card], current_cards: List[card.Card]) -> Lis
         raise ValueError('Not a 3-card difference between card sets: %r vs. %r' % (len(current_cards), len(prev_cards)))
 
     return []
+
+
+def set_difference(prev_cards: List[card.Card],
+                   current_cards: List[card.Card]) -> Optional[Tuple[List[card.Card], List[card.Card]]]:
+    """ Detects a difference in cards for equally-sized card lists """
+    if len(prev_cards) != len(current_cards):
+        raise ValueError('Card lists are not the same length: '
+                         + str(len(prev_cards)) + ' vs. ' + str(len(current_cards)))
+    removed_cards: List[card.Card] = card_list_difference(prev_cards, current_cards)
+    if len(removed_cards) == 3:
+        # Detected a set!
+        added_cards: List[card.Card] = card_list_difference(current_cards, prev_cards)
+        if len(added_cards) != 3:
+            raise ValueError('Did not add three new cards!')
+        return removed_cards, added_cards
+    elif len(removed_cards) == 0:
+        # No sets here
+        return None
+    else:
+        raise ValueError('Did not detect zero or three cards in prev cards that were not in current cards.')
 
 
 def card_list_difference(cards1: List[card.Card], cards2: List[card.Card]) -> List[card.Card]:
