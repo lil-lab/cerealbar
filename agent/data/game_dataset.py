@@ -97,7 +97,7 @@ class GameDataset:
             raise ValueError('Providing a list of example IDs only supported for specified examples.')
 
         if split in {dataset_split.DatasetSplit.TRAIN, dataset_split.DatasetSplit.UPDATE,
-                     dataset_split.DatasetSplit.VAL}:
+                     dataset_split.DatasetSplit.VALIDATION}:
             examples: Dict[str, instruction_example.InstructionExample] = dict()
             for ex_id, example in self._train_examples.items():
                 if len(example.get_action_sequence()) > max_action_length > 0:
@@ -107,7 +107,7 @@ class GameDataset:
                     examples[ex_id] = example
                 elif split == dataset_split.DatasetSplit.UPDATE and split_id in self._update_ids:
                     examples[ex_id] = example
-                elif split == dataset_split.DatasetSplit.VAL and split_id in self._val_ids:
+                elif split == dataset_split.DatasetSplit.VALIDATION and split_id in self._val_ids:
                     examples[ex_id] = example
             return examples
         elif split == dataset_split.DatasetSplit.DEV:
@@ -149,14 +149,14 @@ class GameDataset:
             return all_games
 
         if split in {dataset_split.DatasetSplit.TRAIN, dataset_split.DatasetSplit.UPDATE,
-                     dataset_split.DatasetSplit.VAL}:
+                     dataset_split.DatasetSplit.VALIDATION}:
             games: Dict[str, cereal_bar_game.CerealBarGame] = dict()
             for game_id, game in self._train_games.items():
                 if split == dataset_split.DatasetSplit.TRAIN:
                     games[game_id] = game
                 elif split == dataset_split.DatasetSplit.UPDATE and game_id in self._update_ids:
                     games[game_id] = game
-                elif split == dataset_split.DatasetSplit.VAL and game_id in self._val_ids:
+                elif split == dataset_split.DatasetSplit.VALIDATION and game_id in self._val_ids:
                     games[game_id] = game
             return games
         elif split == dataset_split.DatasetSplit.DEV:
@@ -171,7 +171,7 @@ class GameDataset:
         if not split:
             return self._training_ids | self._dev_ids | self._testing_ids
         elif split in {dataset_split.DatasetSplit.TRAIN, dataset_split.DatasetSplit.UPDATE,
-                       dataset_split.DatasetSplit.VAL}:
+                       dataset_split.DatasetSplit.VALIDATION}:
             return self._training_ids
         elif split == dataset_split.DatasetSplit.DEV:
             return self._dev_ids

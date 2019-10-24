@@ -181,6 +181,9 @@ def load_presaved_data(data_arguments: data_args.DataArgs, split: dataset_split.
                     example: cereal_bar_game.CerealBarGame = pickle.load(infile)
                 examples_dict[example_id] = example
 
+                if len(examples_dict) >= data_arguments.get_maximum_number_examples() >= 0:
+                    break
+
     return examples_dict
 
 

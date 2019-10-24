@@ -275,6 +275,8 @@ _Default: 0.05_
 * `maximum_instruction_index`: If set to zero or more, only instructions with this index (or less) will be used 
 during training and evaluation. This is good for debugging as it reduces the dataset size, and generally first 
 instructions are a bit easier than later ones. _Default: -1 (uses all data)_
+* `maximum_number_examples`: If set to zero or more, only this number of games will be loaded from disk. Use it only 
+for debugging. _Default: -1 (uses all data)_
 
 ## `EvaluationArgs`
 

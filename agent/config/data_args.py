@@ -35,6 +35,11 @@ class DataArgs(args.Args):
                             type=int,
                             help='The maximum instruction index; i.e., no instructions past this index will be '
                                  'included as examples.')
+        parser.add_argument('--maximum_number_examples',
+                            default=-1,
+                            type=int,
+                            help='The maximum number of examples to preprocess and load (should be set only when '
+                                 'debugging).')
 
         self._game_directory: str = None
         self._case_sensitive: bool = None
@@ -42,6 +47,11 @@ class DataArgs(args.Args):
         self._game_state_filename: str = None
         self._validation_proportion: float = None
         self._maximum_instruction_index: int = None
+        self._maximum_number_examples: int = None
+
+    def get_maximum_number_examples(self) -> int:
+        self.check_initialized()
+        return self._maximum_number_examples
 
     def get_split_filename(self, split: dataset_split.DatasetSplit) -> str:
         self.check_initialized()
@@ -51,9 +61,9 @@ class DataArgs(args.Args):
         self.check_initialized()
         return self._game_state_filename
 
-    def presaved(self, dataset_split: dataset_split.DatasetSplit, directory: str) -> bool:
+    def presaved(self, split: dataset_split.DatasetSplit, directory: str) -> bool:
         self.check_initialized()
-        return os.path.exists(os.path.join(directory, str(dataset_split)))
+        return os.path.exists(os.path.join(directory, str(split)))
 
     def case_sensitive(self) -> bool:
         self.check_initialized()
@@ -78,6 +88,7 @@ class DataArgs(args.Args):
         self._game_state_filename = parsed_args.game_state_filename
         self._validation_proportion = parsed_args.validation_proportion
         self._maximum_instruction_index = parsed_args.maximum_instruction_index
+        self._maximum_number_examples = parsed_args.maximum_number_examples
 
         super(DataArgs, self).interpret_args(parsed_args)
 
@@ -89,10 +100,12 @@ class DataArgs(args.Args):
                        '\n\tValidation proportion: %r' \
                        '\n\tMaximum instruction index: %r' \
                        '\n\tCase sensitive? %r' \
-                       '\n\tMinimum wordtype frequency: %r' % (self._game_directory, self._game_state_filename,
-                                                               self.get_validation_proportion(),
-                                                               self._maximum_instruction_index, self.case_sensitive(),
-                                                               self.get_minimum_wordtype_occurrence())
+                       '\n\tMinimum wordtype frequency: %r'\
+                       '\n\tMaximum number of examples: %r'% (self._game_directory, self._game_state_filename,
+                                                              self.get_validation_proportion(),
+                                                              self._maximum_instruction_index, self.case_sensitive(),
+                                                              self.get_minimum_wordtype_occurrence(),
+                                                              self.get_maximum_number_examples())
         return str_rep
 
     def __eq__(self, other) -> bool:
