@@ -21,3 +21,18 @@ class Initialization(Enum):
             nn.init.xavier_normal_(param)
         elif self == Initialization.KAIMING_UNIFORM:
             nn.init.kaiming_uniform_(param)
+
+
+def initialize_rnn(rnn: nn.RNN) -> None:
+    """ Initializes an RNN so that biases have values of 0 and weights are Xavier normalized.
+
+    Args:
+        rnn: nn.RNN. The RNN to initialize.
+    """
+    for name, param in rnn.named_parameters():
+        # Set biases to zero
+        if 'bias' in name:
+            nn.init.constant_(param, 0.0)
+        elif 'weight' in name:
+            # Otherwise do Xavier initialization
+            nn.init.xavier_normal_(param)

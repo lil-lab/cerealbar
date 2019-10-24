@@ -66,7 +66,6 @@ following arguments:
 * `word_embedding_size`: The word embedding size for tokens. _Default: 64_
 * `encoder_hidden_size`: The size of the hidden representation of tokens in the encoder RNN. _Default: 64_
 * `encoder_number_layers`: The number of layers in the encoder RNN. _Default: 1_
-* `encoder_bidirectional`: Whether to run the encoder RNN over the text in both directions. _Default: True_
 
 ### `StateRepresentationArgs`
 

@@ -12,6 +12,7 @@ from agent.data import dataset_split
 from agent.data import game_dataset
 from agent.data import loading
 from agent.learning import util
+from agent.model.model_wrappers import create_model_wrapper
 
 SLACK_CHANNEL: str = ''
 
@@ -72,9 +73,9 @@ def train(args: program_args.ProgramArgs) -> None:
 
     logging.info('Vocabulary contains ' + str(len(vocabulary)) + ' word types')
 
-    model: ModelWrapper = get_model_wrapper(args.get_model_args(),
-                                            training_arguments,
-                                            vocabulary)
+    model: ModelWrapper = create_model_wrapper.get_model_wrapper(args.get_model_args(),
+                                                                 training_arguments,
+                                                                 vocabulary)
     logging.info('Created model:')
     logging.info(model)
 

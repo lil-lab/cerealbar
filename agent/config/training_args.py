@@ -229,7 +229,7 @@ class TrainingArgs(args.Args):
         self.check_initialized()
         return self._aggregate_examples
 
-    def get_auxiliary_coefficient_use_avoid_probabilities(self, finetune: bool) -> float:
+    def get_auxiliary_coefficient_avoid_probabilities(self, finetune: bool) -> float:
         self.check_initialized()
         if finetune:
             return self._finetune_auxiliary_coefficient_avoid_probabilities
