@@ -209,6 +209,8 @@ def load_data(split: dataset_split.DatasetSplit, data_arguments: data_args.DataA
                                                                randomly_split_trainval=False)
         # Save the dataset per-example.
         logging.info('Saving...')
-        dataset.save(split, PRESAVED_DIRECTORY)
+
+        # Only save the entire dataset as a single binary if not processing the train dataset.
+        dataset.save(split, PRESAVED_DIRECTORY, save_entire_dataset=split != dataset_split.DatasetSplit.TRAIN)
         logging.info('Saved')
     return dataset

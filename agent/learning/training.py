@@ -9,6 +9,7 @@ from agent.config import model_args
 from agent.config import program_args
 from agent.config import training_args
 from agent.data import dataset_split
+from agent.data import game_dataset
 from agent.data import loading
 from agent.learning import util
 
@@ -43,21 +44,22 @@ def train(args: program_args.ProgramArgs) -> None:
     train_dataset = loading.load_data(dataset_split.DatasetSplit.TRAIN, args.get_data_args(), args.get_game_args())
     dev_dataset = loading.load_data(dataset_split.DatasetSplit.DEV, args.get_data_args(), args.get_game_args())
 
-    dataset = GameDataset(train_dataset.get_games(dataset_split.DatasetSplit.TRAIN),
-                          dev_dataset.get_games(dataset_split.DatasetSplit.DEV),
-                          dict(),
-                          args.get_data_args(),
-                          randomly_split_trainval=False,
-                          presaved=True)
+    dataset = game_dataset.GameDataset(train_dataset.get_games(dataset_split.DatasetSplit.TRAIN),
+                                       dev_dataset.get_games(dataset_split.DatasetSplit.DEV),
+                                       dict(),
+                                       args.get_data_args(),
+                                       randomly_split_trainval=False,
+                                       presaved=True)
 
     logging.info('Loaded ' + str(len(dataset)) + ' games')
 
     # Save the validation split in a separate file so it can be reloaded later
-    dataset.save_val_split(training_arguments.get_save_directory())
+    dataset.save_validation_split(training_arguments.get_save_directory())
     task: model_args.Task = args.get_model_args().get_task()
 
     if args.get_model_args().get_decoder_args().pretrained_plan_predictor():
         # Load the vocabulary if the plan predictor was pretrianed.
+        raise ValueError('Training using a pretrained plan predictor is not yet supported.')
         logging.info('Loading vocabulary from ')
         vocab_file: str = \
             '/'.join(args.get_model_args().get_decoder_args().pretrained_plan_predictor_filepath().split('/')[:-1])

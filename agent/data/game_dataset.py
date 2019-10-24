@@ -10,6 +10,7 @@ from agent.config import data_args
 from agent.data import cereal_bar_game
 from agent.data import dataset_split
 from agent.data import instruction_example
+from agent import util
 
 
 class GameDataset:
@@ -58,7 +59,7 @@ class GameDataset:
         if split_dir:
             # Load the validation/training split.
             update_id_file: str = os.path.join(split_dir, 'update_ids.txt')
-            val_id_file: str = os.path.join(split_dir, 'val_ids.txt')
+            val_id_file: str = os.path.join(split_dir, 'validation_ids.txt')
             if not os.path.exists(update_id_file):
                 raise ValueError('Given a split directory, expected the update ID file to exist: ' + update_id_file)
             if not os.path.exists(val_id_file):
@@ -71,6 +72,7 @@ class GameDataset:
                 self._val_ids = set([line.strip() for line in infile])
         else:
             # Create the validation/training split.
+            logging.info('Resplitting validation/training with random=%r' % randomly_split_trainval)
             self._val_ids: Set[str] = set()
             self._update_ids: Set[str] = set()
             if data_arguments.get_validation_proportion() > 0:
@@ -199,12 +201,12 @@ class GameDataset:
             for i, word_type in enumerate(self.get_instruction_vocabulary()):
                 ofile.write(str(i) + '\t' + word_type + '\n')
 
-    def save_val_split(self, save_dir: str) -> None:
+    def save_validation_split(self, save_dir: str) -> None:
         """Saves the validation and update game IDs."""
         if not self._val_ids:
             raise ValueError('Never split between training and validation')
         update_id_f: str = os.path.join(save_dir, 'update_ids.txt')
-        val_id_f: str = os.path.join(save_dir, 'val_ids.txt')
+        val_id_f: str = os.path.join(save_dir, 'validation_ids.txt')
 
         with open(update_id_f, 'w') as ofile:
             ofile.write('\n'.join(list(self._update_ids)))
@@ -212,15 +214,18 @@ class GameDataset:
         with open(val_id_f, 'w') as ofile:
             ofile.write('\n'.join(list(self._val_ids)))
 
-    def save(self, split: dataset_split.DatasetSplit, directory):
+    def save(self, split: dataset_split.DatasetSplit, directory: str, save_entire_dataset: bool = True):
         """Saves the dataset to disk."""
         directory: str = os.path.join(directory, str(split))
         if not os.path.exists(directory):
             os.mkdir(directory)
-        for game_id, game in self._train_games.items():
-            with open(os.path.join(directory, game_id + '.pkl'), 'wb') as ofile:
-                pickle.dump(game, ofile)
+        with util.get_progressbar('Saving dataset', len(self._train_games)) as pbar:
+            for game_idx, (game_id, game) in enumerate(self._train_games.items()):
+                with open(os.path.join(directory, game_id + '.pkl'), 'wb') as ofile:
+                    pickle.dump(game, ofile)
+                    pbar.update(game_idx)
         with open(os.path.join(directory, 'args.pkl'), 'wb') as ofile:
             pickle.dump(self._args, ofile)
-        with open(os.path.join(directory, 'dataset.pkl'), 'wb') as ofile:
-            pickle.dump(self, ofile)
+        if save_entire_dataset:
+            with open(os.path.join(directory, 'dataset.pkl'), 'wb') as ofile:
+                pickle.dump(self, ofile)

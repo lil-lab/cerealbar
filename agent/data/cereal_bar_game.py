@@ -4,8 +4,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from agent.data import gameplay_action
+from agent.data import partial_observation
 from agent.environment import environment_objects
 from agent.environment import state_delta
+from agent.environment import terrain
 
 if TYPE_CHECKING:
     from agent.data import instruction_example
@@ -13,7 +15,6 @@ if TYPE_CHECKING:
     from agent.config import data_args
     from agent.environment import card
     from agent.environment import position
-    from agent.environment import terrain
 
 
 class CerealBarGame:
@@ -34,6 +35,9 @@ class CerealBarGame:
         self._object_info: List[environment_objects.EnvironmentObject] = None
         self._examples: List[instruction_example.InstructionExample] = None
         self._expected_sets: List[Tuple[int, List[card.Card], List[card.Card]]] = None
+
+    def get_first_partial_observation(self) -> partial_observation.PartialObservation:
+        return partial_observation.create_first_partial_observation(self.get_initial_state())
 
     def get_initial_state(self) -> state_delta.StateDelta:
         """Gets the game's initial state (cards and player positions/rotations)."""

@@ -2,7 +2,7 @@
 export EXPERIMENT_NAME="test_experiment_plan_predictor"
 
 CUDA_VISIBLE_DEVICES=0 python -m agent.scripts.main \
-                  --saved_game_dir="data/" \
+                  --saved_game_dir="../cereal-bar/official_data/" \
                   --game_state_filename="agent/preprocessed/game_states.pkl" \
                   --save_dir="agent/experiments/" \
                   --experiment_name=${EXPERIMENT_NAME} \

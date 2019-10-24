@@ -4,16 +4,19 @@ from typing import Dict, List, Optional, Tuple
 
 from agent.data import cereal_bar_game
 from agent.data import gameplay_action
+from agent.data import partial_observation
 from agent.environment import agent_actions
 from agent.environment import card
 from agent.environment import environment_objects
 from agent.environment import state_delta
+from agent import util
 
 
 class InstructionExample:
     def __init__(self,
                  instruction: List[str],
-                 target_action_sequence: List[Tuple[state_delta.StateDelta, agent_actions.AgentAction]],
+                 target_action_sequence: List[Tuple[state_delta.StateDelta, agent_actions.AgentAction,
+                                                    partial_observation.PartialObservation]],
                  paired_game: cereal_bar_game.CerealBarGame,
                  example_idx_in_interaction: int,
                  leader_actions: List[List[gameplay_action.GameplayAction]],
@@ -23,7 +26,8 @@ class InstructionExample:
                  number_of_instructions_when_starting: int):
         self._instruction: List[str] = instruction
         self._target_action_sequence: List[
-            Tuple[state_delta.StateDelta, agent_actions.AgentAction]] = target_action_sequence
+            Tuple[state_delta.StateDelta, agent_actions.AgentAction,
+                  partial_observation.PartialObservation]] = target_action_sequence
         self._paired_game: cereal_bar_game.CerealBarGame = paired_game
         self._example_idx_in_interaction: int = example_idx_in_interaction
         self._leader_actions: List[List[gameplay_action.GameplayAction]] = leader_actions
@@ -34,6 +38,9 @@ class InstructionExample:
 
     def get_id(self) -> str:
         return self._paired_game.get_id() + '-' + str(self._example_idx_in_interaction)
+
+    def get_instruction(self) -> List[str]:
+        return self._instruction
 
 
 def construct_game_examples(game: cereal_bar_game.CerealBarGame, max_instruction_index: int):
@@ -61,8 +68,11 @@ def construct_game_examples(game: cereal_bar_game.CerealBarGame, max_instruction
     num_steps_remaining: int = 10
     buffer_size: int = 0
 
+    current_observation: partial_observation.PartialObservation = game.get_first_partial_observation()
+
     for i, segmented_seq in enumerate(segmented_actions):
-        follower_action_sequence: List[Tuple[state_delta.StateDelta, agent_actions.AgentAction]] = list()
+        follower_action_sequence: List[Tuple[state_delta.StateDelta, agent_actions.AgentAction,
+                                             partial_observation.PartialObservation]] = list()
         current_leader_actions_dict: Dict[int, List[gameplay_action.GameplayAction]] = dict()
         current_sets: List[Tuple[List[card.Card], List[card.Card]]] = list()
 
@@ -73,7 +83,8 @@ def construct_game_examples(game: cereal_bar_game.CerealBarGame, max_instruction
         for action in segmented_seq:
             if isinstance(action, gameplay_action.MovementAction):
                 if action.get_agent() == environment_objects.ObjectType.FOLLOWER:
-                    follower_action_sequence.append((action.get_prior_game_info(), action.get_action()))
+                    follower_action_sequence.append((action.get_prior_game_info(), action.get_action(),
+                                                     current_observation))
 
                     if not following:
                         initial_num_steps_remaining = num_steps_remaining
@@ -96,6 +107,10 @@ def construct_game_examples(game: cereal_bar_game.CerealBarGame, max_instruction
                     if following:
                         current_sets.append(set_result)
 
+                # Update the observability
+                current_observation = partial_observation.update_observation(current_observation,
+                                                                             action.get_posterior_game_info())
+
             elif isinstance(action, gameplay_action.EndTurnAction):
                 if action.get_agent() == environment_objects.ObjectType.FOLLOWER:
                     num_steps_remaining = 10
@@ -113,7 +128,8 @@ def construct_game_examples(game: cereal_bar_game.CerealBarGame, max_instruction
                 if not following:
                     initial_buffer_size = buffer_size
                 buffer_size -= 1
-                follower_action_sequence.append((action.get_prior_game_info(), agent_actions.AgentAction.STOP))
+                follower_action_sequence.append((action.get_prior_game_info(), agent_actions.AgentAction.STOP,
+                                                 current_observation))
 
         leader_actions_to_pass: List[List[gameplay_action.GameplayAction]] = list()
         if current_leader_actions_dict:
@@ -153,11 +169,13 @@ def construct_examples(games: Dict[str, cereal_bar_game.CerealBarGame],
                        max_instruction_index: int) -> Dict[str, InstructionExample]:
     examples: Dict[str, InstructionExample] = dict()
 
-    for game_id, game in games.items():
-        game_examples, all_sets = construct_game_examples(game, max_instruction_index)
-        game.set_examples(game_examples)
-        game.set_sets_made(all_sets)
-        for i, example in enumerate(game_examples):
-            examples[game_id + '-' + str(i)] = example
+    with util.get_progressbar('constructing examples', len(games)) as pbar:
+        for game_idx, (game_id, game) in enumerate(games.items()):
+            game_examples, all_sets = construct_game_examples(game, max_instruction_index)
+            game.set_examples(game_examples)
+            game.set_sets_made(all_sets)
+            for i, example in enumerate(game_examples):
+                examples[game_id + '-' + str(i)] = example
+            pbar.update(game_idx)
 
     return examples
