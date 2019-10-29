@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import torch
 import torch.nn as nn
 
+from agent.environment import util as environment_util
+from agent.learning import batch_util
 from agent.model.modules import word_embedder
 
 if TYPE_CHECKING:
@@ -76,65 +78,54 @@ class DynamicEnvironmentEmbedder(nn.Module):
 
         # First, embed the properties independently
         emb_card_counts: torch.Tensor = \
-            bhwc_to_bchw(self._card_count_embedder(
+            batch_util.bhwc_to_bchw(self._card_count_embedder(
                 card_counts.view(batch_size, -1)).view(batch_size,
-                                                       ENV_WIDTH,
-                                                       ENV_DEPTH,
+                                                       environment_util.ENVIRONMENT_WIDTH,
+                                                       environment_util.ENVIRONMENT_DEPTH,
                                                        self._card_count_embedder.embedding_size()))
         emb_card_colors: torch.Tensor = \
-            bhwc_to_bchw(self._card_color_embedder(
+            batch_util.bhwc_to_bchw(self._card_color_embedder(
                 card_colors.view(batch_size, -1)).view(batch_size,
-                                                       ENV_WIDTH,
-                                                       ENV_DEPTH,
+                                                       environment_util.ENVIRONMENT_WIDTH,
+                                                       environment_util.ENVIRONMENT_DEPTH,
                                                        self._card_color_embedder.embedding_size()))
         emb_card_shapes: torch.Tensor = \
-            bhwc_to_bchw(self._card_shape_embedder(
+            batch_util.bhwc_to_bchw(self._card_shape_embedder(
                 card_shapes.view(batch_size, -1)).view(batch_size,
-                                                       ENV_WIDTH,
-                                                       ENV_DEPTH,
+                                                       environment_util.ENVIRONMENT_WIDTH,
+                                                       environment_util.ENVIRONMENT_DEPTH,
                                                        self._card_shape_embedder.embedding_size()))
         emb_card_selections: torch.Tensor = \
-            bhwc_to_bchw(self._card_selection_embedder(
+            batch_util.bhwc_to_bchw(self._card_selection_embedder(
                 card_selections.view(batch_size, -1)).view(batch_size,
-                                                           ENV_WIDTH,
-                                                           ENV_DEPTH,
+                                                           environment_util.ENVIRONMENT_WIDTH,
+                                                           environment_util.ENVIRONMENT_DEPTH,
                                                            self._card_selection_embedder.embedding_size()))
         emb_leader_rotations: torch.Tensor = \
-            bhwc_to_bchw(self._leader_rotation_embedder(
+            batch_util.bhwc_to_bchw(self._leader_rotation_embedder(
                 leader_rotations.view(batch_size, -1)).view(batch_size,
-                                                            ENV_WIDTH,
-                                                            ENV_DEPTH,
+                                                            environment_util.ENVIRONMENT_WIDTH,
+                                                            environment_util.ENVIRONMENT_DEPTH,
                                                             self._leader_rotation_embedder.embedding_size()))
         emb_follower_rotations: torch.Tensor = \
-            bhwc_to_bchw(self._follower_rotation_embedder(
+            batch_util.bhwc_to_bchw(self._follower_rotation_embedder(
                 follower_rotations.view(batch_size, -1)).view(batch_size,
-                                                              ENV_WIDTH,
-                                                              ENV_DEPTH,
+                                                              environment_util.ENVIRONMENT_WIDTH,
+                                                              environment_util.ENVIRONMENT_DEPTH,
                                                               self._follower_rotation_embedder.embedding_size()))
 
-        if self._build_style in {DenseBuildStyle.CONCAT, DenseBuildStyle.HIERARCHICAL}:
-            # TODO: currently, the Hierarchical style works the same as concat. Should I keep this?
-            emb_state = torch.cat((emb_card_counts,
-                                   emb_card_colors,
-                                   emb_card_shapes,
-                                   emb_card_selections,
-                                   emb_leader_rotations,
-                                   emb_follower_rotations), dim=1)
-        elif self._build_style == DenseBuildStyle.SUM:
-            # Each embedding will be B x C x H x W, where C is the embedding size.
-            # Stacking them gets a tensors of size N x B x C x H x W, where N is the number of embeddings.
-            stacked_tensors = torch.stack((emb_card_counts,
-                                           emb_card_colors,
-                                           emb_card_shapes,
-                                           emb_card_selections,
-                                           emb_leader_rotations,
-                                           emb_follower_rotations))
-            # Permute so it has size B x N x C x H x W
-            permuted_tensor = stacked_tensors.permute(1, 0, 2, 3, 4)
+        # Each embedding will be B x C x H x W, where C is the embedding size.
+        # Stacking them gets a tensors of size N x B x C x H x W, where N is the number of embeddings.
+        stacked_tensors = torch.stack((emb_card_counts,
+                                       emb_card_colors,
+                                       emb_card_shapes,
+                                       emb_card_selections,
+                                       emb_leader_rotations,
+                                       emb_follower_rotations))
+        # Permute so it has size B x N x C x H x W
+        permuted_tensor = stacked_tensors.permute(1, 0, 2, 3, 4)
 
-            # Then sum across that dimension
-            emb_state = torch.sum(permuted_tensor, dim=1)
-        else:
-            raise ValueError('Build style not recognized: ' + str(self._build_style))
+        # Then sum across that dimension
+        emb_state = torch.sum(permuted_tensor, dim=1)
 
         return emb_state

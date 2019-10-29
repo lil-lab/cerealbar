@@ -305,7 +305,7 @@ class TrainingArgs(args.Args):
         self.check_initialized()
         return self._experiment_name
 
-    def get_optimizer(self, task: model_args.Task, finetune: bool) -> Callable[[Any], torch.optim.Optimizer]:
+    def get_optimizer(self, task: model_args.Task, finetune: bool = False) -> Callable[[Any], torch.optim.Optimizer]:
         self.check_initialized()
 
         learning_rate: float = 0.

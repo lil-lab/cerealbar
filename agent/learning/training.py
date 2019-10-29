@@ -11,6 +11,7 @@ from agent.config import training_args
 from agent.data import dataset_split
 from agent.data import game_dataset
 from agent.data import loading
+from agent.learning import plan_metrics
 from agent.learning import util
 from agent.model.model_wrappers import create_model_wrapper
 
@@ -93,10 +94,10 @@ def train(args: program_args.ProgramArgs) -> None:
 
     if task == model_args.Task.PLAN_PREDICTOR:
         logging.info('Running on dev after training for plan prediction...')
-        final_goal_acc = evaluate_goal_predictions(model,
-                                                   dataset.get_examples(dataset_split.DatasetSplit.DEV),
-                                                   args.get_game_args(),
-                                                   args.get_evaluation_args())
+        predictions = plan_metrics.plan_metric_results(model, list(dataset.get_examples(
+            dataset_split.DatasetSplit.DEV).values()))
+        print(predictions)
+
         if training_arguments.log_with_slack():
             util.send_slack_message(username=training_arguments.get_experiment_name(),
                                     message='Final goal-prediction accuracy: ' + '{0:.2f}'.format(

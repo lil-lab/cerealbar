@@ -14,7 +14,8 @@ from typing import TYPE_CHECKING
 from agent.config import model_args
 
 if TYPE_CHECKING:
-    from typing import Any, List, Tuple
+    from agent.learning import auxiliary
+    from typing import Any, Dict, List, Tuple
     from pycrayon import crayon
     from agent.data import instruction_example
 
@@ -53,11 +54,18 @@ class ModelWrapper(ABC):
     def loss(self, examples: List[instruction_example.InstructionExample]) -> Tuple[torch.Tensor, Any]:
         pass
 
+    @abstractmethod
+    def get_auxiliaries(self) -> Dict[auxiliary.Auxiliary, float]:
+        pass
+
     def named_parameters(self):
         if self._parallelized:
             return self._model.module.named_parameters()
         else:
             return self._model.named_parameters()
+
+    def get_arguments(self) -> model_args.ModelArgs:
+        return self._args
 
     def parameters(self):
         return self._model.parameters()
@@ -80,7 +88,7 @@ class ModelWrapper(ABC):
         else:
             self._model.save(filename)
 
-    def get_predictions(self, *args, **kwargs) -> List[Any]:
+    def get_predictions(self, *args, **kwargs) -> Any:
         if self._parallelized:
             # This ignores parallelization because this only should be used for inference.
             return self._model.module.get_predictions(*args, **kwargs)

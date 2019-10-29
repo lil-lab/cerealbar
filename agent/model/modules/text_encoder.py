@@ -11,6 +11,7 @@ import torch.nn as nn
 
 from agent.model.modules import word_embedder
 from agent.model.utilities import initialization
+from agent.model.utilities import rnn
 
 if TYPE_CHECKING:
     from agent.config import text_encoder_args
@@ -59,7 +60,7 @@ class TextEncoder(nn.Module):
         """ batched_instructions is a tensor of size B x T_in representing the token indices. """
         batch_embeddings: torch.Tensor = self._dropout(self._embedder(batched_instructions))
 
-        return fast_run_rnn(batched_instruction_lengths, batch_embeddings, self._rnn)
+        return rnn.fast_run_rnn(batched_instruction_lengths, batch_embeddings, self._rnn)
 
     def encode(self, instructions: List[List[str]]) -> torch.Tensor:
         """ Encodes a list of instructions into a tensor.
@@ -79,4 +80,4 @@ class TextEncoder(nn.Module):
         # Now embed things
         batch_embeddings: torch.Tensor = self._embedder(torch_indices.to(DEVICE))
 
-        return fast_run_rnn(torch.tensor(seq_lens, dtype=torch.long).to(DEVICE), batch_embeddings, self._rnn)
+        return rnn.fast_run_rnn(torch.tensor(seq_lens, dtype=torch.long).to(DEVICE), batch_embeddings, self._rnn)

@@ -4,23 +4,18 @@ from __future__ import absolute_import
 import os
 import logging
 import multiprocessing
-import torch
 
-from agent.config import util
+from agent import util
+from agent.config import util as config_util
 from agent.config import program_args
 from agent.simulation import replay
 from agent.learning import training
-
-if torch.cuda.device_count() >= 1:
-    DEVICE: torch.device = torch.device('cuda')
-else:
-    DEVICE: torch.device = torch.device('cpu')
 
 
 def main():
     """ Main function for Cereal Bar experiments. """
     multiprocessing.set_start_method('spawn')
-    args: program_args.ProgramArgs = util.get_args()
+    args: program_args.ProgramArgs = config_util.get_args()
 
     run_type: program_args.RunType = args.get_run_type()
 
@@ -37,7 +32,7 @@ def main():
 
     logging.info(args)
     if run_type == program_args.RunType.TRAIN:
-        logging.info('Using device: %s', str(DEVICE))
+        logging.info('Using device: %s', str(util.DEVICE))
 
         training.train(args)
     elif run_type == program_args.RunType.REPLAY:

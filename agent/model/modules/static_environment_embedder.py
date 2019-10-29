@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import torch
 import torch.nn as nn
 
+from agent.environment import util as environment_util
+from agent.learning import batch_util
 from agent.model.modules import state_representation
 from agent.model.modules import word_embedder
 
@@ -92,27 +94,15 @@ class StaticEnvironmentEmbedder(nn.Module):
 
         # First, embed the properties independently
         embedded_tensors: List[torch.Tensor] = \
-            [bhwc_to_bchw(embedder(tensor.view(batch_size,
-                                               -1)).view(batch_size,
-                                                         ENV_WIDTH,
-                                                         ENV_DEPTH,
-                                                         embedder.embedding_size()))
+            [batch_util.bhwc_to_bchw(embedder(tensor.view(batch_size,
+                                                          -1)).view(batch_size,
+                                                                    environment_util.ENVIRONMENT_WIDTH,
+                                                                    environment_util.ENVIRONMENT_DEPTH,
+                                                                    embedder.embedding_size()))
              for embedder, tensor in zip(self._embedders, input_tensors)]
 
-        if self._build_style == DenseBuildStyle.CONCAT:
-            emb_state = torch.cat(tuple(embedded_tensors), dim=1)
-        elif self._build_style == DenseBuildStyle.SUM:
-            stacked_tensors = torch.stack(tuple(embedded_tensors))
-            permuted_tensor = stacked_tensors.permute(1, 0, 2, 3, 4)
-            emb_state = torch.sum(permuted_tensor, dim=1)
-        elif self._build_style == DenseBuildStyle.HIERARCHICAL:
-            # Does not include the terrain tensor.
-            stacked_prop_tensors = torch.stack(tuple(embedded_tensors[:-1]))
-            permuted_tensor = stacked_prop_tensors.permute(1, 0, 2, 3, 4)
-            emb_prop: torch.Tensor = torch.sum(permuted_tensor, dim=1)
-
-            emb_state = torch.cat((emb_prop, embedded_tensors[-1]), dim=1)
-        else:
-            raise ValueError('Build style not recognized: ' + str(self._build_style))
+        stacked_tensors = torch.stack(tuple(embedded_tensors))
+        permuted_tensor = stacked_tensors.permute(1, 0, 2, 3, 4)
+        emb_state = torch.sum(permuted_tensor, dim=1)
 
         return emb_state

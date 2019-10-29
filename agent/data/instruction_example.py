@@ -1,4 +1,5 @@
 """Example of an instruction paired with agent actions."""
+import numpy as np
 
 from typing import Dict, List, Optional, Tuple
 
@@ -8,7 +9,10 @@ from agent.data import partial_observation
 from agent.environment import agent_actions
 from agent.environment import card
 from agent.environment import environment_objects
+from agent.environment import position
 from agent.environment import state_delta
+from agent.environment import terrain
+from agent.environment import util as environment_util
 from agent import util
 
 
@@ -36,11 +40,120 @@ class InstructionExample:
         self._number_of_steps_in_first_turn: int = number_of_steps_in_first_turn
         self._number_of_instructions_when_starting: int = number_of_instructions_when_starting
 
+        self._static_indices = None
+
     def get_id(self) -> str:
         return self._paired_game.get_id() + '-' + str(self._example_idx_in_interaction)
 
     def get_instruction(self) -> List[str]:
         return self._instruction
+
+    def get_action_sequence(self) -> List[str]:
+        return [str(x[1]) for x in self._target_action_sequence]
+
+    def get_state_deltas(self) -> List[state_delta.StateDelta]:
+        return [x[0] for x in self._target_action_sequence]
+
+    def get_initial_cards(self) -> List[card.Card]:
+        return self.get_initial_state().cards
+
+    def get_initial_state(self) -> state_delta.StateDelta:
+        return self._target_action_sequence[0][0]
+
+    def get_static_indices(self, state_representation) -> np.array:
+        if self._static_indices is None:
+            self._static_indices = state_representation.static_indices(self)
+        return self._static_indices
+
+    def get_objects(self) -> List[environment_objects.EnvironmentObject]:
+        return self._paired_game.get_objects()
+
+    def get_obstacle_positions(self) -> List[position.Position]:
+        obstacle_positions: List[position.Position] = list()
+        for ter, hexp in self.get_hexes():
+            if terrain in terrain.OBSTACLE_TERRAINS:
+                obstacle_positions.append(hexp)
+        for obj in self.get_objects():
+            assert obj.get_type() != environment_objects.ObjectType.CARD
+            obstacle_positions.append(obj.get_position())
+        return obstacle_positions
+
+    def get_hexes(self) -> List[Tuple[terrain.Terrain, position.Position]]:
+        return self._paired_game.get_hexes()
+
+    def get_visited_positions(self, include_start: bool = True, start_idx: int = 0) -> List[position.Position]:
+        """Gets an ordered list of positions visited by the agent along the gold trajectory.
+        
+        Args:
+            include_start: Whether to include the start position in the list.
+            start_idx: The action index to start from.
+        
+        """
+        if include_start:
+            return list(set([delta.follower.get_position() for delta in self.get_state_deltas()[start_idx:]]))
+
+        state: state_delta.StateDelta = self.get_state_deltas()[start_idx]
+        original_position: position.Position = state.follower.get_position()
+        pos_list: List[position.Position] = []
+        has_moved: bool = False
+        for delta in self.get_state_deltas()[start_idx:]:
+            current_position = delta.follower.get_position()
+            if current_position == original_position and not has_moved:
+                continue
+            else:
+                has_moved = True
+            pos_list.append(current_position)
+
+        return list(set(pos_list))
+
+    def get_touched_cards(self,
+                          start_idx: int = 0,
+                          include_start_position: bool = False,
+                          allow_duplicates: bool = True) -> List[card.Card]:
+        """Gets all cards touched along the gold trajectory.
+
+        Args:
+            start_idx: The first index along the trajectory to consider when computing which cards were touched.
+            include_start_position: Whether to include any cards that are in the initial position.
+            allow_duplicates: TODO: Not sure what this setting does actually.
+
+        """
+        if allow_duplicates:
+            state: state_delta.StateDelta = self.get_state_deltas()[start_idx]
+            original_card_positions: List[position.Position] = [state_card.get_position() for state_card in state.cards]
+
+            agent_positions: List[position.Position] = self.get_visited_positions(
+                include_start=include_start_position, start_idx=start_idx)
+            reached_card_positions = set(original_card_positions) & set(agent_positions)
+
+            reached_cards: List[card.Card] = list()
+            for state_card in state.cards:
+                if state_card.get_position() in reached_card_positions:
+                    reached_cards.append(state_card)
+            return reached_cards
+        else:
+            return get_changed_cards_along_trajectory(self.get_state_deltas())
+
+    def get_correct_trajectory_distribution(self,
+                                            weight_by_time: bool) -> np.array:
+
+        distribution: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+        if weight_by_time:
+            path: List[position.Position] = [delta.follower.get_position() for delta in self.get_state_deltas()]
+
+            # The weight is one over the path length, rather than the number of unique locations.
+            weight_per_hex: float = 1. / len(path)
+            for location in path:
+                # Add the weight rather than setting it.
+                distribution[0][location.x][location.y] += weight_per_hex
+        else:
+            correct_trajectory: List[position.Position] = self.get_visited_positions()
+            weight_per_hex: float = 1. / len(correct_trajectory)
+
+            for location in correct_trajectory:
+                distribution[0][location.x][location.y] = weight_per_hex
+
+        return distribution
 
 
 def construct_game_examples(game: cereal_bar_game.CerealBarGame, max_instruction_index: int):
