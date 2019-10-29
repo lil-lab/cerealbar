@@ -12,7 +12,7 @@ Executing instructions in situated collaborative interactions. Alane Suhr, Claud
 We recommend using the same virtual environment for all aspects of the project. We use Python 3.7.0. You can set this up
  by doing:
 
-1. Clone this repository. **Make sure to use git lfs clone or you may have to type your password for every lfs file in this repository (there are hundreds of them -- so please don't do this!**
+1. Clone this repository. **Make sure to use git lfs clone or you may have to type your password for every lfs file in this repository (there are hundreds of them -- so please don't do this!)**
 1. Create a virtual environment for python 3.7 called `venv`: `python3.7 -m venv venv` _If you are having issues creating a virtual environment, please see [this Github Issues answer](https://github.com/ContinuumIO/anaconda-issues/issues/6917#issuecomment-340014721)._
 1. Activate the virtual environment: `. venv/bin/activate`
 1. Install the requirements: `pip install -r requirements.txt`
