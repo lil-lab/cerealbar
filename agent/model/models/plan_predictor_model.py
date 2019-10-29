@@ -6,6 +6,7 @@ Clases:
 """
 from __future__ import annotations
 
+import logging
 import math
 from typing import TYPE_CHECKING
 
@@ -110,8 +111,8 @@ class PlanPredictorModel(nn.Module):
             world_size_px=PADDED_WIDTH,
             world_size_m=PADDED_WIDTH)
         if torch.cuda.device_count() >= 1:
-            self._into_lingunet_transformer = self._into_lingunet_transformer.cuda()
-            self._after_lingunet_transformer = self._after_lingunet_transformer.cuda()
+            self._into_lingunet_transformer = self._into_lingunet_transformer.cuda(device=util.DEVICE)
+            self._after_lingunet_transformer = self._after_lingunet_transformer.cuda(device=util.DEVICE)
 
         # Predict two output channels if computing a trajectory distribution auxiliary loss.
         lingunet_out_channels: int = 0

@@ -93,7 +93,7 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
                                                                                         specified_auxiliary])))
 
         # Technically, no main loss here
-        return torch.tensor(0.), auxiliary_loss_dict
+        return torch.tensor(0.).to(util.DEVICE), auxiliary_loss_dict
 
     def _train_epoch(self,
                      train_ids: List[Tuple[str, int]],

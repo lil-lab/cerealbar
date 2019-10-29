@@ -33,7 +33,7 @@ class MapAffine(nn.Module):
         nn.Module.cuda(self, device)
         self._is_cuda = True
         self._cuda_device = device
-        self._affine_2d.cuda()
+        self._affine_2d.cuda(device)
         return self
 
     def get_affine_matrices(self, map_poses, cam_poses, batch_size):

@@ -46,6 +46,9 @@ class ModelWrapper(ABC):
         if torch.cuda.device_count() > 0:
             self._model: nn.Module = self._model.cuda()
 
+        # Is it on the device?
+        logging.info('Model parameters on GPU: %r' % next(self._model.parameters()).is_cuda)
+
     @abstractmethod
     def train_loop(self, dataset, game_args, eval_args, training_args, experiment) -> str:
         pass
