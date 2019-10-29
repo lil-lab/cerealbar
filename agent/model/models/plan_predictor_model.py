@@ -6,11 +6,9 @@ Clases:
 """
 from __future__ import annotations
 
-import logging
 import math
 from typing import TYPE_CHECKING
 
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -56,8 +54,6 @@ class PlanPredictorModel(nn.Module):
 
         # first, it embeds the representation
         self._args: model_args.ModelArgs = args
-        self._static_embedder: nn.Module = None
-        self._dynamic_embedder: nn.Module = None
         self._env_feature_channels: int = 0
         self._auxiliaries: List[auxiliary.Auxiliary] = auxiliaries
 

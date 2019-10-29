@@ -13,8 +13,8 @@ We recommend using the same virtual environment for all aspects of the project. 
  by doing:
 
 1. Create a virtual environment for python 3.7 called `venv`: `python3.7 -m venv venv`
-1. Install the requirements: `pip install -r requirements.txt`
 1. Activate the virtual environment: `. venv/bin/activate`
+1. Install the requirements: `pip install -r requirements.txt`
 
 
 ## Cereal Bar Game

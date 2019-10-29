@@ -37,7 +37,6 @@ class StateRepresentation:
         if not args.full_observability():
             raise ValueError('Need to adapt for partial observability')
 
-        # Indices for dynamic states
         self._card_color_indices: List[Union[card.CardColor, str]] = [EMPTY_STR] + sorted(
             [color for color in card.CardColor])
         self._card_shape_indices: List[Union[card.CardShape, str]] = [EMPTY_STR] + sorted(
