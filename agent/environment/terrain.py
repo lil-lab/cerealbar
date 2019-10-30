@@ -30,7 +30,6 @@ class Terrain(Enum):
     DEEP_WATER: str = 'DEEP_WATER'
     HILL: str = 'HILL'
     SHORT_HILL: str = 'SHORT_HILL'
-    UNOBSERVABLE: str = 'UNOBSERVABLE'
 
     def __str__(self) -> str:
         return self.value

@@ -46,6 +46,9 @@ class PartialObservation:
         """Returns all positions that the follower has seen throughout the entire game."""
         return self._observed_positions
 
+    def get_observed_state_delta(self) -> state_delta.StateDelta:
+        return self._observed_state_delta
+
 
 def create_first_partial_observation(complete_state_delta: state_delta.StateDelta) -> PartialObservation:
     initial_follower = complete_state_delta.follower

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export EXPERIMENT_NAME="test_experiment_plan_predictor"
+export EXPERIMENT_NAME="partial_observability"
 
 CUDA_VISIBLE_DEVICES=0 python -m agent.scripts.main \
                   --saved_game_dir="../cereal-bar/official_data/" \
@@ -11,4 +11,6 @@ CUDA_VISIBLE_DEVICES=0 python -m agent.scripts.main \
                   --pretrain_auxiliary_coefficient_final_goal_probabilities=1. \
                   --pretrain_auxiliary_coefficient_obstacle_probabilities=0.1 \
                   --pretrain_auxiliary_coefficient_avoid_probabilities=0.1 \
-                  --pretrain_auxiliary_coefficient_trajectory_distribution=1.
+                  --pretrain_auxiliary_coefficient_trajectory_distribution=1. \
+                  --maximum_number_examples=10 \
+                  --full_observability=False

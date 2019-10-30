@@ -1,5 +1,5 @@
 """Module for embedding words."""
-from typing import List
+from typing import Any, List
 
 import torch
 import torch.nn as nn
@@ -9,10 +9,10 @@ PAD_TOK: str = "_PAD"
 
 
 class WordEmbedder(nn.Module):
-    def __init__(self, embedding_size: int, vocabulary: List[str], add_unk: bool = True, zero_out: bool = False):
+    def __init__(self, embedding_size: int, vocabulary: List[Any], add_unk: bool = True, zero_out: bool = False):
         super(WordEmbedder, self).__init__()
 
-        self._vocabulary: List[str] = [PAD_TOK] + vocabulary
+        self._vocabulary: List[Any] = [PAD_TOK] + vocabulary
         self._embedding_size: int = embedding_size
         self._zero_out: bool = zero_out
 
@@ -21,8 +21,6 @@ class WordEmbedder(nn.Module):
 
         self.embeddings: nn.Embedding = nn.Embedding(len(self._vocabulary), self._embedding_size)
 
-        # Normally distributed around 0 with scale(?) of 1
-        #        self.embeddings.weight.data.normal_(0, 1)
         torch.nn.init.xavier_normal_(self.embeddings.weight)
 
     def embedding_size(self) -> int:
@@ -31,10 +29,10 @@ class WordEmbedder(nn.Module):
     def vocabulary_size(self) -> int:
         return len(self._vocabulary)
 
-    def get_vocabulary(self) -> List[str]:
+    def get_vocabulary(self) -> List[Any]:
         return self._vocabulary
 
-    def get_index(self, token: str) -> int:
+    def get_index(self, token: Any) -> int:
         if token not in self._vocabulary:
             index = self._vocabulary.index(UNK_TOK)
         else:

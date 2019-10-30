@@ -18,6 +18,11 @@ class StateRepresentationArgs(args.Args):
                             default=True,
                             type=lambda x: bool(strtobool(x)),
                             help='Whether to assume full observability of the environment.')
+        parser.add_argument('--observability_refresh_rate',
+                            default=1,
+                            type=int,
+                            help='The number of actions that should be considered before updating the observability '
+                                 'embedding for the follower agent.')
         parser.add_argument('--property_embedding_size',
                             default=32,
                             type=int,
@@ -30,6 +35,7 @@ class StateRepresentationArgs(args.Args):
         self._full_observability: bool = None
         self._property_embedding_size: int = None
         self._learn_absence_embeddings: bool = None
+        self._observability_refresh_rate: int = None
 
     def get_property_embedding_size(self) -> int:
         self.check_initialized()
@@ -43,22 +49,26 @@ class StateRepresentationArgs(args.Args):
         self.check_initialized()
         return self._full_observability
 
+    def observability_refresh_rate(self) -> int:
+        self.check_initialized()
+        return self._observability_refresh_rate
+
     def interpret_args(self, parsed_args: Namespace) -> None:
         self._full_observability = parsed_args.full_observability
-
-        if not self._full_observability:
-            raise ValueError('Partial observability is not yet supported.')
-
         self._learn_absence_embeddings = parsed_args.learn_absence_embeddings
         self._property_embedding_size = parsed_args.property_embedding_size
+        self._observability_refresh_rate = parsed_args.observability_refresh_rate
 
         super(StateRepresentationArgs, self).interpret_args(parsed_args)
 
     def __str__(self) -> str:
         str_rep: str = '*** State representation arguments ***' \
                        '\n\tFull observability? %r' \
+                       '\n\tObservability refresh rate: %r' \
                        '\n\tLearn absence embeddings? %r' \
-                       '\n\tProperty embedding size: %r' % (self._full_observability, self._learn_absence_embeddings,
+                       '\n\tProperty embedding size: %r' % (self._full_observability,
+                                                            self.observability_refresh_rate(),
+                                                            self._learn_absence_embeddings,
                                                             self._property_embedding_size)
         return str_rep
 
@@ -66,5 +76,6 @@ class StateRepresentationArgs(args.Args):
         if isinstance(other, StateRepresentationArgs):
             return self._full_observability == other.full_observability() and self._learn_absence_embeddings == \
                    other.learn_absence_embeddings() and  \
-                   self._property_embedding_size == other.get_property_embedding_size()
+                   self._property_embedding_size == other.get_property_embedding_size() and \
+                   self._observability_refresh_rate == other.observability_refresh_rate()
         return False

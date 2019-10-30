@@ -188,8 +188,7 @@ class ActionGeneratorArgs(args.Args):
         self._use_avoid_probabilities = parsed_args.use_avoid_probabilities
         self._use_obstacle_probabilities = parsed_args.use_obstacle_probabilities
         self._use_trajectory_distribution = parsed_args.use_trajectory_distribution
-        if self._use_trajectory_distribution:
-            self._weight_trajectory_by_time = parsed_args.weight_trajectory_by_time
+        self._weight_trajectory_by_time = parsed_args.weight_trajectory_by_time
 
         self._convolution_encode_map_distributions = parsed_args.convolution_encode_map_distributions
         self._state_internal_size = parsed_args.state_internal_size

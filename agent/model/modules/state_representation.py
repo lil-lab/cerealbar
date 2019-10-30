@@ -33,9 +33,7 @@ class StateRepresentation:
     """
 
     def __init__(self, args: state_representation_args.StateRepresentationArgs):
-        # Unsupported settings for args
-        if not args.full_observability():
-            raise ValueError('Need to adapt for partial observability')
+        self._args: state_representation_args.StateRepresentationArgs = args
 
         self._card_color_indices: List[Union[card.CardColor, str]] = [EMPTY_STR] + sorted(
             [color for color in card.CardColor])
@@ -81,6 +79,15 @@ class StateRepresentation:
                 environment_objects.ObjectType.PLANT,
                 environment_objects.ObjectType.LAMPPOST,
                 environment_objects.ObjectType.TENT])
+
+        # TODO: Do we also want to have channels for (1) edges, or (2) what's currently being observed in partial
+        #   observability?
+        # Argument for currently-observed channel: Could help the model know what information being embedded is
+        # out-of-date. Although, it should already learn its scope. Embedding the age of the last observation could
+        # also be useful here.
+
+    def get_args(self) -> state_representation_args.StateRepresentationArgs:
+        return self._args
 
     def get_card_colors(self) -> List[Union[card.CardColor, str]]:
         return self._card_color_indices
@@ -226,8 +233,6 @@ class StateRepresentation:
         leader_rotation_arrays: List[np.array] = []
         follower_rotation_arrays: List[np.array] = []
 
-        # TODO: this is just getting indices for the first initial state only
-
         for example in state_deltas:
             card_count_indices, card_color_indices, card_shape_indices, card_selection_indices = \
                 self.get_card_indices(example.cards)
@@ -240,8 +245,12 @@ class StateRepresentation:
                 [[self._leader_rotation_indices.index(EMPTY_STR) for __ in range(environment_util.ENVIRONMENT_DEPTH)]
                  for _ in range(environment_util.ENVIRONMENT_WIDTH)]
             leader: agent.Agent = example.leader
-            leader_rotations[leader.get_position().x][leader.get_position().y] = \
-                self._leader_rotation_indices.index(leader.get_rotation())
+
+            if leader is not None:
+                leader_rotations[leader.get_position().x][leader.get_position().y] = \
+                    self._leader_rotation_indices.index(leader.get_rotation())
+            elif self._args.full_observability():
+                raise ValueError('Leader should not be None with full observability.')
             leader_rotation_arrays.append(leader_rotations)
 
             follower_rotations = \
@@ -329,3 +338,27 @@ class StateRepresentation:
                 tower_rotation_tensor,
                 tent_rotation_tensor,
                 terrain_tensor]
+
+    def batch_partially_observable_indices(self,
+                                           examples: List[Tuple[instruction_example, int]]) -> Tuple[List[torch.Tensor],
+                                                                                                     torch.Tensor]:
+        # Delta indices. Just grab the observation at this index.
+        batched_delta_indices = self.batch_state_delta_indices(
+            [example.get_partial_observations()[i].get_observed_state_delta() for example, i in examples])
+
+        # Static indices. You can use the cache here! Anything that hasn't yet been observed will be zeroed out anyway.
+        batched_static_indices = self.batch_static_indices([example for example, i in examples])
+
+        state_masks: List[np.array] = list()
+        for example, action_index in examples:
+            mask: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+
+            # Set the mask to 1 for all locations that have been observed (OK to use static state information)
+            for pos in example.get_partial_observations()[action_index].observed_positions():
+                mask[0][pos.x][pos.y] = 1.
+
+            state_masks.append(mask)
+
+        batched_state_mask: torch.Tensor = torch.tensor(np.stack(state_masks), dtype=torch.float32)
+
+        return batched_delta_indices + batched_static_indices, batched_state_mask

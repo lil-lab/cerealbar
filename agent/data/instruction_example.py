@@ -106,6 +106,9 @@ class InstructionExample:
 
         return list(set(pos_list))
 
+    def get_partial_observations(self) -> List[partial_observation.PartialObservation]:
+        return [x[2] for x in self._target_action_sequence]
+
     def get_touched_cards(self,
                           start_idx: int = 0,
                           include_start_position: bool = False,
@@ -135,11 +138,22 @@ class InstructionExample:
             return get_changed_cards_along_trajectory(self.get_state_deltas())
 
     def get_correct_trajectory_distribution(self,
-                                            weight_by_time: bool) -> np.array:
+                                            weight_by_time: bool,
+                                            full_observability: bool = True,
+                                            action_index: int = 0) -> np.array:
 
         distribution: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
         if weight_by_time:
             path: List[position.Position] = [delta.follower.get_position() for delta in self.get_state_deltas()]
+
+            if not full_observability:
+                # Remove things from the path that were not observed at this point.
+                observed_positions = self.get_partial_observations()[action_index].observed_positions()
+                new_path: List[position.Position] = list()
+                for pos in path:
+                    if pos in observed_positions:
+                        new_path.append(pos)
+                path = new_path
 
             # The weight is one over the path length, rather than the number of unique locations.
             weight_per_hex: float = 1. / len(path)
@@ -148,6 +162,11 @@ class InstructionExample:
                 distribution[0][location.x][location.y] += weight_per_hex
         else:
             correct_trajectory: List[position.Position] = self.get_visited_positions()
+
+            if not full_observability:
+                observed_positions = self.get_partial_observations()[action_index].observed_positions()
+                correct_trajectory = list(set(correct_trajectory) & observed_positions)
+
             weight_per_hex: float = 1. / len(correct_trajectory)
 
             for location in correct_trajectory:
@@ -292,3 +311,17 @@ def construct_examples(games: Dict[str, cereal_bar_game.CerealBarGame],
             pbar.update(game_idx)
 
     return examples
+
+
+def get_example_action_index_pairs(examples: Dict[str, InstructionExample],
+                                   full_observability: bool,
+                                   observability_refresh_rate: int) -> List[Tuple[str, int]]:
+    if full_observability:
+        if observability_refresh_rate > 1:
+            raise ValueError('Refreshing after more than one action is not supported.')
+        ids = list()
+        for example_id, example in examples.items():
+            for i in range(len(example.get_action_sequence())):
+                ids.append((example_id, i))
+        return ids
+    return [(key, 0) for key in examples.keys()]

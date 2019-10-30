@@ -13,10 +13,11 @@ import torch
 from agent import util
 from agent.config import model_args
 from agent.data import dataset_split
+from agent.data import instruction_example
 from agent.learning import auxiliary
+from agent.learning import batch_loss
 from agent.learning import plan_losses
 from agent.learning import plan_metrics
-from agent.learning import batch_loss
 from agent.model.model_wrappers import model_wrapper
 from agent.model.models import plan_predictor_model
 
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
     from agent.config import game_args
     from agent.config import training_args
     from agent.data import game_dataset
-    from agent.data import instruction_example
     from pycrayon import crayon
     from typing import Any, Dict, List, Tuple
 
@@ -85,7 +85,8 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
         for i, (example, action_idx) in enumerate(examples):
             plan_losses.compute_per_example_auxiliary_losses(
                 example, i, auxiliary_dict, list(self._auxiliaries.keys()), auxiliary_loss_dict,
-                self._args.get_decoder_args().weight_trajectory_by_time())
+                self._args.get_decoder_args().weight_trajectory_by_time(),
+                self.get_arguments().get_state_rep_args().full_observability())
 
         # Now compute the means for each of the auxiliary losses
         for specified_auxiliary in list(self._auxiliaries.keys()):
@@ -106,6 +107,8 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
         num_batches: int = 0
         train_loss_sum: float = 0
 
+        # TODO: Should this be shuffled randomly so that action indices for the same instruction are likely in
+        #   different batches? Or prefer to have them in the same batch to have the batch be more useful?
         random.shuffle(train_ids)
 
         losses_dict = dict()
@@ -185,7 +188,10 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
         # TODO: The second value here is the index in the action sequence that the state is being observed.
         # for now, it is only training on data for the 0th action: i.e., at the beginning of the instruction.
         # However, when moving to partial observability, this should include ALL actions in every sequence.
-        train_ids: List[Tuple[str, int]] = [(key, 0) for key in train_examples.keys()]
+
+        train_ids = instruction_example.get_example_action_index_pairs(
+            train_examples, self._args.get_state_rep_args().full_observability(),
+            self._args.get_state_rep_args().observability_refresh_rate())
 
         validation_examples: Dict[str, instruction_example.InstructionExample] = dataset.get_examples(
             dataset_split.DatasetSplit.VALIDATION)
@@ -213,6 +219,7 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
                               optimizer,
                               experiment)
 
+            exit()
             validation_goal_accuracy = self._eval(train_examples, validation_examples, experiment,
                                                   training_arguments.get_proportion_of_train_for_accuracy())
 

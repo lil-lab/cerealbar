@@ -51,8 +51,12 @@ class CrossEntropy2d(nn.Module):
 def compute_trajectory_loss(example: Union[instruction_example.InstructionExample,
                                            aggregated_instruction_example.AggregatedInstructionExample],
                             predicted_map_distribution: torch.Tensor,
-                            weight_by_time: bool):
-    gold_map = example.get_correct_trajectory_distribution(weight_by_time=weight_by_time)
+                            action_index: int,
+                            weight_by_time: bool,
+                            full_observability: bool):
+    gold_map = example.get_correct_trajectory_distribution(weight_by_time=weight_by_time,
+                                                           full_observability=full_observability,
+                                                           action_index=action_index)
     return CrossEntropy2d()(predicted_map_distribution,
                             torch.tensor(gold_map).float().unsqueeze(0).unsqueeze(0).to(util.DEVICE))
 
@@ -95,6 +99,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                                          auxiliaries: List[auxiliary.Auxiliary],
                                          auxiliary_losses: Dict[auxiliary.Auxiliary, List[torch.Tensor]],
                                          traj_weight_by_time: bool,
+                                         full_observability: bool,
                                          action_idx: int = 0):
     intermediate_goal_scores: List[torch.Tensor] = list()
     avoid_scores: List[torch.Tensor] = list()
@@ -103,34 +108,84 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
 
     avoid_labels: List[torch.Tensor] = list()
 
-    # For all cards on the board at the beginning
-    for card in example.get_state_deltas()[action_idx].cards:
-        position = card.get_position()
+    # Get labels and matched predictions for goals and places to avoid
+    touched_positions = [card.get_position() for card in example.get_touched_cards(start_idx=action_idx)]
+    touched_plus_initial = [card.get_position() for card in example.get_touched_cards(include_start_position=True)]
+    if full_observability:
+        for card in example.get_state_deltas()[action_idx].cards:
+            position = card.get_position()
 
-        # If it's to be touched, give a 1 label
-        if position in \
-                [card.get_position() for card in
-                 example.get_touched_cards(start_idx=action_idx)]:
-            final_reach_labels.append(torch.tensor(1.))
-        else:
-            final_reach_labels.append(torch.tensor(0.))
-
-        if auxiliary.Auxiliary.INTERMEDIATE_GOALS in auxiliaries:
-            intermediate_goal_scores.append(
-                auxiliary_dict[auxiliary.Auxiliary.INTERMEDIATE_GOALS][example_idx][position.x][position.y])
-
-        if auxiliary.Auxiliary.FINAL_GOALS in auxiliaries:
-            final_goal_scores.append(
-                auxiliary_dict[auxiliary.Auxiliary.FINAL_GOALS].squeeze(1)[example_idx][position.x][position.y])
-
-        if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
-            avoid_scores.append(auxiliary_dict[auxiliary.Auxiliary.AVOID_LOCS][example_idx][0][position.x][position.y])
-
-            # Currently, should predict all cards except the one it's currently on
-            if position in [card.get_position() for card in example.get_touched_cards(include_start_position=True)]:
-                avoid_labels.append(torch.tensor(0.))
+            # If it's to be touched, give a 1 label
+            if position in touched_positions:
+                final_reach_labels.append(torch.tensor(1.))
             else:
-                avoid_labels.append(torch.tensor(1.))
+                final_reach_labels.append(torch.tensor(0.))
+
+            if auxiliary.Auxiliary.INTERMEDIATE_GOALS in auxiliaries:
+                intermediate_goal_scores.append(
+                    auxiliary_dict[auxiliary.Auxiliary.INTERMEDIATE_GOALS][example_idx][position.x][position.y])
+
+            if auxiliary.Auxiliary.FINAL_GOALS in auxiliaries:
+                final_goal_scores.append(
+                    auxiliary_dict[auxiliary.Auxiliary.FINAL_GOALS].squeeze(1)[example_idx][position.x][position.y])
+
+            if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
+                avoid_scores.append(
+                    auxiliary_dict[auxiliary.Auxiliary.AVOID_LOCS][example_idx][0][position.x][position.y])
+
+                # Currently, should predict all cards except the one it's currently on
+                if position in touched_plus_initial:
+                    avoid_labels.append(torch.tensor(0.))
+                else:
+                    avoid_labels.append(torch.tensor(1.))
+    else:
+        # Only compute loss over cards that are believed to exist. Other cards are impossible to predict.
+        for card in example.get_partial_observations()[action_idx].get_card_beliefs():
+            position = card.get_position()
+
+            # If it is touched by the agent, give it a 1 label
+            # Goals may not get a loss if:
+            #   - If the card is a goal but hasn't been observed yet by the agent.
+            #   - If the card disappeared already because a set was made.
+            # The label may be "inconsistent" if:
+            #   - The card was already touched by the agent (i.e., no longer a goal), the label will be 1 (it is a goal)
+
+            # TODO: Do we want predict goals according to updated card information (including selection and existence
+            #  of cards that might change as the agent is moving), or according to card information as it appeared at
+            #  the beginning of the instruction? Two considerations:
+            #       - Cards that have disappeared due to a set being made get no loss for actions after the card has
+            #         disappeared. This might be bad because it's inconsistent wrt. the instruction, which might mention
+            #         to get a card that is no longer on the board.
+            #       - Cards whose selection has changed may look as though they are a goal even if they've been toggled
+            #         already. This is also inconsistent wrt. the instruction (e.g., might say to select a card when
+            #         already selected).
+            # Currently, predictions are made wrt. updated information.
+            if position in touched_positions:
+                final_reach_labels.append(torch.tensor(1.))
+            else:
+                final_reach_labels.append(torch.tensor(0.))
+
+            if auxiliary.Auxiliary.INTERMEDIATE_GOALS in auxiliaries:
+                intermediate_goal_scores.append(
+                    auxiliary_dict[auxiliary.Auxiliary.INTERMEDIATE_GOALS][example_idx][position.x][position.y])
+
+            if auxiliary.Auxiliary.FINAL_GOALS in auxiliaries:
+                final_goal_scores.append(
+                    auxiliary_dict[auxiliary.Auxiliary.FINAL_GOALS].squeeze(1)[example_idx][position.x][position.y])
+
+            # This is also currently updating wrt. newest card information, including if new cards appear,
+            # which will (once they appear) get a label of 0.
+
+            # TODO: Should this also be computed with most recent card information? (What it's doing now)
+            if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
+                avoid_scores.append(
+                    auxiliary_dict[auxiliary.Auxiliary.AVOID_LOCS][example_idx][0][position.x][position.y])
+
+                # Currently, should predict all cards except the one it's currently on
+                if position in touched_plus_initial:
+                    avoid_labels.append(torch.tensor(0.))
+                else:
+                    avoid_labels.append(torch.tensor(1.))
 
     # To compute the loss, flatten everything first
     combined_labels = torch.stack(tuple(final_reach_labels)).to(util.DEVICE)
@@ -172,21 +227,42 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
         auxiliary_losses[auxiliary.Auxiliary.TRAJECTORY].append(
             compute_trajectory_loss(example,
                                     auxiliary_dict[auxiliary.Auxiliary.TRAJECTORY][0][example_idx].unsqueeze(0),
-                                    traj_weight_by_time))
+                                    action_idx,
+                                    traj_weight_by_time,
+                                    full_observability))
 
+    # Obstacle loss
     if auxiliary.Auxiliary.OBSTACLES in auxiliaries:
-        impassable_label: torch.Tensor = torch.zeros((environment_util.ENVIRONMENT_WIDTH,
-                                                      environment_util.ENVIRONMENT_DEPTH)).float()
-        impassable_score: torch.Tensor = auxiliary_dict[auxiliary.Auxiliary.OBSTACLES][example_idx][0]
-
-        for position in example.get_obstacle_positions():
-            impassable_label[position.x][position.y] = 1.
-
         if auxiliary.Auxiliary.OBSTACLES not in auxiliary_losses:
             auxiliary_losses[auxiliary.Auxiliary.OBSTACLES] = list()
-        auxiliary_losses[auxiliary.Auxiliary.OBSTACLES].append(
-            nn.BCEWithLogitsLoss()(impassable_score.view(1, -1),
-                                   impassable_label.view(1, -1).to(util.DEVICE)))
+
+        if full_observability:
+            impassable_label: torch.Tensor = torch.zeros((environment_util.ENVIRONMENT_WIDTH,
+                                                          environment_util.ENVIRONMENT_DEPTH)).float()
+            impassable_score: torch.Tensor = auxiliary_dict[auxiliary.Auxiliary.OBSTACLES][example_idx][0]
+
+            for position in example.get_obstacle_positions():
+                impassable_label[position.x][position.y] = 1.
+
+            auxiliary_losses[auxiliary.Auxiliary.OBSTACLES].append(
+                nn.BCEWithLogitsLoss()(impassable_score.view(1, -1),
+                                       impassable_label.view(1, -1).to(util.DEVICE)))
+        else:
+            # If partial observability, only compute a loss over positions that have been observed.
+            impassable_label: List[torch.Tensor] = list()
+            impassable_pred: List[torch.Tensor] = list()
+            for observed_position in example.get_partial_observations()[action_idx].observed_positions():
+                if observed_position in example.get_obstacle_positions():
+                    impassable_label.append(torch.tensor(1.))
+                else:
+                    impassable_label.append(torch.tensor(0.))
+
+                impassable_pred.append(
+                    auxiliary_dict[auxiliary.Auxiliary.OBSTACLES][
+                        example_idx][0][observed_position.x][observed_position.y])
+                auxiliary_losses[auxiliary.Auxiliary.OBSTACLES].append(nn.BCEWithLogitsLoss()(
+                    torch.stack(tuple(impassable_pred)),
+                    torch.stack(tuple(impassable_label)).to(util.DEVICE)))
 
     if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
         if auxiliary.Auxiliary.AVOID_LOCS not in auxiliary_losses:

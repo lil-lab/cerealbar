@@ -73,7 +73,9 @@ This set of arguments specifies how the environment state is represented before 
 following arguments:
 
 * `full_observability`: Whether the environment representation contains full knowledge of the environment. _Default: 
-True_ **Note: partial observability (`full_observability == False`) is currently not supported.**
+True_ **Note: partial observability (`full_observability == False`) is currently in development.**
+* `observability_refresh_rate`: The number of forward actions that can be taken before the environment representation
+ should be updated. _Default: 1_
 * `property_embedding_size`: The size of the vector to encode each hex's property to. _Default: 32_
 * `learn_absence_embeddings`: Whether to learn and use embeddings that correspond to the absence of a particular 
 object type. If False, the property type will be set to a zero-vector. _Default: True_

@@ -15,18 +15,21 @@ from agent import util
 
 def add_trajectory_metrics(metric_results: Dict[str, Any],
                            example: instruction_example.InstructionExample,
+                           action_index: int,
                            predicted_map_distribution: torch.Tensor,
                            weight_by_time: bool) -> None:
     """
     Computes and adds metrics for trajectory cross-entropy.
     :param metric_results: The dictionary to add the results to.
     :param example: The example to get the gold trajectory for.
+    :param action_index: The index of the action to compute trajectory cross-entropy for.
     :param predicted_map_distribution: The predicted distribution over maps.
     :param weight_by_time: Whether points along the trajectory should be weighted by the time the agent spent in them.
     """
     metric_results[str(auxiliary.Auxiliary.TRAJECTORY) + ' xent'].append(
         plan_losses.compute_trajectory_loss(example,
                                             predicted_map_distribution,
+                                            action_index,
                                             weight_by_time=weight_by_time).item())
 
 
@@ -130,6 +133,7 @@ def plan_metric_results(model, examples: List[instruction_example.InstructionExa
         if auxiliary.Auxiliary.TRAJECTORY in model.get_auxiliaries():
             add_trajectory_metrics(metric_results,
                                    example,
+                                   action_index,
                                    auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY],
                                    model.get_arguments().get_decoder_args().weight_trajectory_by_time())
 

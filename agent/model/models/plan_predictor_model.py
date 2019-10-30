@@ -26,6 +26,7 @@ from agent.model.modules import lingunet
 from agent.model.modules import state_representation
 from agent.model.modules import static_environment_embedder
 from agent.model.modules import text_encoder
+from agent.model.modules import word_embedder
 
 if TYPE_CHECKING:
     from agent.config import model_args
@@ -136,14 +137,20 @@ class PlanPredictorModel(nn.Module):
         list_args: List[torch.Tensor] = list(args)
 
         dynamic_args: List[torch.Tensor] = list_args[0:6]
-        static_args: List[torch.Tensor] = list_args[6:]
+        static_args: List[torch.Tensor] = list_args[6:-1]
+        state_mask: torch.Tensor = list_args[-1]
 
         emb_delta: torch.Tensor = self._dynamic_embedder(*dynamic_args)
         emb_static: torch.Tensor = self._static_embedder(*static_args)
 
         embedded_environment: torch.Tensor = torch.sum(torch.stack((emb_delta, emb_static)), dim=0)
 
-        return embedded_environment
+        masked_environment = embedded_environment * state_mask
+
+        return masked_environment
+
+    def get_instruction_embedder(self) -> word_embedder.WordEmbedder:
+        return self._instruction_encoder.get_word_embedder()
 
     def batch_inputs(self,
                      examples: List[Tuple[instruction_example.InstructionExample, int]],
@@ -165,17 +172,25 @@ class PlanPredictorModel(nn.Module):
 
         # TODO: This will need to change with partial observability -- you should get the partial observations
         # rather than the state delta.
-        delta_tensors = self._state_rep.batch_state_delta_indices(
-            [example.get_state_deltas()[i] for example, i in examples])
-        static_tensors = self._state_rep.batch_static_indices([example[0] for example in examples])
-        state_tensors = delta_tensors + static_tensors
+        if self._state_rep.get_args().full_observability():
+            delta_tensors = self._state_rep.batch_state_delta_indices(
+                [example.get_state_deltas()[i] for example, i in examples])
+            static_tensors = self._state_rep.batch_static_indices([example[0] for example in examples])
+            state_tensors = delta_tensors + static_tensors
+
+            # The mask is 1 -- no hexes are unknown.
+            state_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32)
+        else:
+            state_tensors, state_mask = self._state_rep.batch_partially_observable_indices(examples)
 
         # These are initial rotations and positions because LingUNet is always rotated to the initial position
         # of the agent so that the instruction makes sense.
+        # TODO: With partial observability, should it transform/rotate wrt. current orientation, or stay according to
+        #  the initial orientation?
         initial_positions: List[torch.Tensor] = []
         initial_rotations: List[torch.Tensor] = []
 
-        for example, idx in examples:
+        for example, _ in examples:
             initial_state: state_delta.StateDelta = example.get_initial_state()
             initial_follower: agent.Agent = initial_state.follower
             initial_position: position.Position = initial_follower.get_position()
@@ -190,7 +205,7 @@ class PlanPredictorModel(nn.Module):
         tensors: List[torch.Tensor] = [instruction_index_tensor,
                                        instruction_lengths_tensor,
                                        initial_position_tensor,
-                                       initial_rotation_tensor] + state_tensors
+                                       initial_rotation_tensor] + state_tensors + [state_mask]
 
         if put_on_device:
             cuda_inputs: List[Optional[torch.Tensor]] = list()
@@ -210,14 +225,6 @@ class PlanPredictorModel(nn.Module):
             save_file: str. The filename to read from.
         """
         self.load_state_dict(torch.load(save_file, map_location=util.DEVICE))
-
-    def get_instruction_embedder(self) -> WordEmbedder:
-        """ Returns the instruction embedder for the model. """
-        return self._instruction_encoder.get_word_embedder()
-
-    def get_state_rep(self) -> SparseStateRepresentation:
-        """ Returns the channels specification for the state. """
-        return self._args.get_state_rep_args().get_state_representation()
 
     def save(self, save_file: str) -> None:
         """ Saves the model parameters to a specified location.

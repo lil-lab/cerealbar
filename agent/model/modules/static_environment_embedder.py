@@ -17,7 +17,7 @@ from agent.model.modules import state_representation
 from agent.model.modules import word_embedder
 
 if TYPE_CHECKING:
-    from typing import List
+    from typing import List, Optional
 
 
 class StaticEnvironmentEmbedder(nn.Module):
