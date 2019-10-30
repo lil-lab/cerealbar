@@ -169,9 +169,6 @@ class PlanPredictorModel(nn.Module):
             [example[0] for example in examples], self.get_instruction_embedder())
 
         # Use indices to represent properties of the environment
-
-        # TODO: This will need to change with partial observability -- you should get the partial observations
-        # rather than the state delta.
         if self._state_rep.get_args().full_observability():
             delta_tensors = self._state_rep.batch_state_delta_indices(
                 [example.get_state_deltas()[i] for example, i in examples])
@@ -179,7 +176,7 @@ class PlanPredictorModel(nn.Module):
             state_tensors = delta_tensors + static_tensors
 
             # The mask is 1 -- no hexes are unknown.
-            state_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32)
+            state_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32).unsqueeze(1)
         else:
             state_tensors, state_mask = self._state_rep.batch_partially_observable_indices(examples)
 
@@ -321,14 +318,15 @@ class PlanPredictorModel(nn.Module):
         return auxiliary_dict
 
     def get_predictions(self,
-                        example: instruction_example.InstructionExample) -> Dict[auxiliary.Auxiliary, Any]:
+                        example: instruction_example.InstructionExample,
+                        action_index: int) -> Dict[auxiliary.Auxiliary, Any]:
         """ Gets the predictions of the model for an example.
 
         Arguments:
             example: instruction_example.InstructionExample. The example to predict for.
+            action_index: The index of the action it should be predicting for.
         """
-        # TODO: allow for not just the current index.
-        batched_inputs = self.batch_inputs([(example, 0)])
+        batched_inputs = self.batch_inputs([(example, action_index)])
 
         if torch.cuda.device_count() >= 1:
             cuda_inputs = []

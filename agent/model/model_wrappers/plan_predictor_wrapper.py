@@ -7,7 +7,6 @@ import math
 import os
 import random
 from typing import TYPE_CHECKING
-
 import torch
 
 from agent import util
@@ -82,6 +81,7 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
 
         # The action index doesn't affect anything about this loss computation, as the gold trajectory distribution
         # and card distribution should remain the same throughout.
+
         for i, (example, action_idx) in enumerate(examples):
             plan_losses.compute_per_example_auxiliary_losses(
                 example, i, auxiliary_dict, list(self._auxiliaries.keys()), auxiliary_loss_dict,
@@ -153,15 +153,19 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
 
             # Evaluate on training sample
             train_sample = list(train_examples.values())[:int(len(train_examples) * train_evaluation_proportion)]
+            train_sample_dict = dict()
+            for example in train_sample:
+                train_sample_dict[example.get_id()] = example
+
             train_results_dict: Dict[str, Any] = \
-                plan_metrics.plan_metric_results(self, train_sample)
+                plan_metrics.plan_metric_results(self, train_sample_dict)
 
             for name, float_value in train_results_dict.items():
                 experiment.add_scalar_value('train ' + str(name), float_value)
 
             # Evaluating on the validation subset
             validation_results_dict: Dict[str, Any] = \
-                plan_metrics.plan_metric_results(self, list(validation_examples.values()))
+                plan_metrics.plan_metric_results(self, validation_examples)
 
             for name, float_value in validation_results_dict.items():
                 experiment.add_scalar_value('val ' + str(name), float_value)
@@ -219,7 +223,6 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
                               optimizer,
                               experiment)
 
-            exit()
             validation_goal_accuracy = self._eval(train_examples, validation_examples, experiment,
                                                   training_arguments.get_proportion_of_train_for_accuracy())
 

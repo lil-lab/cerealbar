@@ -109,7 +109,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
     avoid_labels: List[torch.Tensor] = list()
 
     # Get labels and matched predictions for goals and places to avoid
-    touched_positions = [card.get_position() for card in example.get_touched_cards(start_idx=action_idx)]
+    touched_positions = [card.get_position() for card in example.get_touched_cards()]
     touched_plus_initial = [card.get_position() for card in example.get_touched_cards(include_start_position=True)]
     if full_observability:
         for card in example.get_state_deltas()[action_idx].cards:
@@ -188,19 +188,28 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                     avoid_labels.append(torch.tensor(1.))
 
     # To compute the loss, flatten everything first
-    combined_labels = torch.stack(tuple(final_reach_labels)).to(util.DEVICE)
+    if final_reach_labels:
+        combined_labels = torch.stack(tuple(final_reach_labels)).to(util.DEVICE)
 
-    if auxiliary.Auxiliary.INTERMEDIATE_GOALS in auxiliaries:
-        if auxiliary.Auxiliary.INTERMEDIATE_GOALS not in auxiliary_losses:
-            auxiliary_losses[auxiliary.Auxiliary.INTERMEDIATE_GOALS] = list()
-        auxiliary_losses[auxiliary.Auxiliary.INTERMEDIATE_GOALS].append(
-            nn.BCEWithLogitsLoss()(torch.stack(tuple(intermediate_goal_scores)), combined_labels))
+        if auxiliary.Auxiliary.INTERMEDIATE_GOALS in auxiliaries:
+            if auxiliary.Auxiliary.INTERMEDIATE_GOALS not in auxiliary_losses:
+                auxiliary_losses[auxiliary.Auxiliary.INTERMEDIATE_GOALS] = list()
+            auxiliary_losses[auxiliary.Auxiliary.INTERMEDIATE_GOALS].append(
+                nn.BCEWithLogitsLoss()(torch.stack(tuple(intermediate_goal_scores)), combined_labels))
 
-    if auxiliary.Auxiliary.FINAL_GOALS in auxiliaries:
-        if auxiliary.Auxiliary.FINAL_GOALS not in auxiliary_losses:
-            auxiliary_losses[auxiliary.Auxiliary.FINAL_GOALS] = list()
-        auxiliary_losses[auxiliary.Auxiliary.FINAL_GOALS].append(
-            nn.BCEWithLogitsLoss()(torch.stack(tuple(final_goal_scores)), combined_labels))
+        if auxiliary.Auxiliary.FINAL_GOALS in auxiliaries:
+            if auxiliary.Auxiliary.FINAL_GOALS not in auxiliary_losses:
+                auxiliary_losses[auxiliary.Auxiliary.FINAL_GOALS] = list()
+            auxiliary_losses[auxiliary.Auxiliary.FINAL_GOALS].append(
+                nn.BCEWithLogitsLoss()(torch.stack(tuple(final_goal_scores)), combined_labels))
+
+    if avoid_labels:
+        if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
+            if auxiliary.Auxiliary.AVOID_LOCS not in auxiliary_losses:
+                auxiliary_losses[auxiliary.Auxiliary.AVOID_LOCS] = list()
+            auxiliary_losses[auxiliary.Auxiliary.AVOID_LOCS].append(
+                nn.BCEWithLogitsLoss()(torch.stack(tuple(avoid_scores)),
+                                       torch.stack(tuple(avoid_labels)).to(util.DEVICE)))
 
     if auxiliary.Auxiliary.IMPLICIT in auxiliaries:
         if auxiliary.Auxiliary.IMPLICIT not in auxiliary_losses:
@@ -236,7 +245,6 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
         if auxiliary.Auxiliary.OBSTACLES not in auxiliary_losses:
             auxiliary_losses[auxiliary.Auxiliary.OBSTACLES] = list()
 
-        if full_observability:
             impassable_label: torch.Tensor = torch.zeros((environment_util.ENVIRONMENT_WIDTH,
                                                           environment_util.ENVIRONMENT_DEPTH)).float()
             impassable_score: torch.Tensor = auxiliary_dict[auxiliary.Auxiliary.OBSTACLES][example_idx][0]
@@ -244,29 +252,17 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
             for position in example.get_obstacle_positions():
                 impassable_label[position.x][position.y] = 1.
 
+            if not full_observability:
+                # Mask the predictions and labels so they are both zero on pixels that are not observed (loss will be
+                # zero)
+                state_mask = torch.zeros((environment_util.ENVIRONMENT_WIDTH,
+                                          environment_util.ENVIRONMENT_DEPTH)).float()
+                for position in example.get_partial_observations()[action_idx].observed_positions():
+                    state_mask[position.x][position.y] = 1.
+
+                impassable_label = impassable_label * state_mask
+                impassable_score = impassable_score * state_mask
+
             auxiliary_losses[auxiliary.Auxiliary.OBSTACLES].append(
                 nn.BCEWithLogitsLoss()(impassable_score.view(1, -1),
                                        impassable_label.view(1, -1).to(util.DEVICE)))
-        else:
-            # If partial observability, only compute a loss over positions that have been observed.
-            impassable_label: List[torch.Tensor] = list()
-            impassable_pred: List[torch.Tensor] = list()
-            for observed_position in example.get_partial_observations()[action_idx].observed_positions():
-                if observed_position in example.get_obstacle_positions():
-                    impassable_label.append(torch.tensor(1.))
-                else:
-                    impassable_label.append(torch.tensor(0.))
-
-                impassable_pred.append(
-                    auxiliary_dict[auxiliary.Auxiliary.OBSTACLES][
-                        example_idx][0][observed_position.x][observed_position.y])
-                auxiliary_losses[auxiliary.Auxiliary.OBSTACLES].append(nn.BCEWithLogitsLoss()(
-                    torch.stack(tuple(impassable_pred)),
-                    torch.stack(tuple(impassable_label)).to(util.DEVICE)))
-
-    if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
-        if auxiliary.Auxiliary.AVOID_LOCS not in auxiliary_losses:
-            auxiliary_losses[auxiliary.Auxiliary.AVOID_LOCS] = list()
-        auxiliary_losses[auxiliary.Auxiliary.AVOID_LOCS].append(
-            nn.BCEWithLogitsLoss()(torch.stack(tuple(avoid_scores)),
-                                   torch.stack(tuple(avoid_labels)).to(util.DEVICE)))
