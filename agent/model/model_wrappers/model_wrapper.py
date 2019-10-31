@@ -50,7 +50,7 @@ class ModelWrapper(ABC):
         logging.info('Model parameters on GPU: %r' % next(self._model.parameters()).is_cuda)
 
     @abstractmethod
-    def train_loop(self, dataset, game_args, eval_args, training_args, experiment) -> str:
+    def train_loop(self, dataset, game_arguments, evaluation_arguments, training_arguments, experiment) -> str:
         pass
 
     @abstractmethod

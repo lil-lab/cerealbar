@@ -190,6 +190,11 @@ class ActionGeneratorArgs(args.Args):
         self._use_trajectory_distribution = parsed_args.use_trajectory_distribution
         self._weight_trajectory_by_time = parsed_args.weight_trajectory_by_time
 
+        if not (self._use_goal_probabilities or self._use_avoid_probabilities or self._use_obstacle_probabilities or
+                self._use_trajectory_distribution):
+            raise ValueError('At least one of goal/avoid/obstacle/trajectory should be used as input to action '
+                             'predictor.')
+
         self._convolution_encode_map_distributions = parsed_args.convolution_encode_map_distributions
         self._state_internal_size = parsed_args.state_internal_size
         self._crop_size = parsed_args.crop_size

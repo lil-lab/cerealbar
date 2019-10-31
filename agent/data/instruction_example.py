@@ -42,6 +42,15 @@ class InstructionExample:
 
         self._static_indices = None
 
+    def hash_representation(self) -> str:
+        str_hash: str = self.get_id() + '/' + \
+                        ' '.join([str(action) for action in self.get_action_sequence()]) + '/' + \
+                        str(self.get_initial_state().follower.get_position()) + '/' + \
+                        str(self.get_initial_state().follower.get_rotation()) + '/'
+        for initial_card in self.get_initial_state().cards:
+            str_hash += str(initial_card) + '/'
+        return str_hash
+
     def get_id(self) -> str:
         return self._paired_game.get_id() + '-' + str(self._example_idx_in_interaction)
 
@@ -136,6 +145,13 @@ class InstructionExample:
             return reached_cards
         else:
             return get_changed_cards_along_trajectory(self.get_state_deltas())
+
+    def get_card_scores(self) -> Dict[position.Position, float]:
+        # TODO: Partial observability
+        scores: Dict[position.Position, float] = dict()
+        for initial_card in self.get_initial_cards():
+            scores[initial_card.get_position()] = 1. if initial_card in self.get_touched_cards() else 0.
+        return scores
 
     def get_correct_trajectory_distribution(self,
                                             weight_by_time: bool,

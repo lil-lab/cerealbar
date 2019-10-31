@@ -6,7 +6,6 @@ Clases:
 """
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 
 import torch
@@ -33,10 +32,6 @@ if TYPE_CHECKING:
     from agent.config import state_representation_args
     from agent.data import instruction_example
     from typing import Any, List, Dict, Optional, Tuple
-
-# The maximum size of the rotated/transformed map.
-PADDED_WIDTH: int = 2 * int(
-    math.sqrt(math.pow(environment_util.ENVIRONMENT_WIDTH, 2) + math.pow(environment_util.ENVIRONMENT_DEPTH, 2))) + 1
 
 
 class PlanPredictorModel(nn.Module):
@@ -99,14 +94,14 @@ class PlanPredictorModel(nn.Module):
 
         self._into_lingunet_transformer: map_transformer.MapTransformer = map_transformer.MapTransformer(
             source_map_size=environment_util.ENVIRONMENT_WIDTH,
-            dest_map_size=PADDED_WIDTH,
+            dest_map_size=environment_util.PADDED_WIDTH,
             world_size_px=environment_util.ENVIRONMENT_WIDTH,
             world_size_m=environment_util.ENVIRONMENT_WIDTH)
         self._after_lingunet_transformer: map_transformer.MapTransformer = map_transformer.MapTransformer(
-            source_map_size=PADDED_WIDTH,
+            source_map_size=environment_util.PADDED_WIDTH,
             dest_map_size=environment_util.ENVIRONMENT_WIDTH,
-            world_size_px=PADDED_WIDTH,
-            world_size_m=PADDED_WIDTH)
+            world_size_px=environment_util.PADDED_WIDTH,
+            world_size_m=environment_util.PADDED_WIDTH)
         if torch.cuda.device_count() >= 1:
             self._into_lingunet_transformer = self._into_lingunet_transformer.cuda(device=util.DEVICE)
             self._after_lingunet_transformer = self._after_lingunet_transformer.cuda(device=util.DEVICE)
@@ -130,7 +125,7 @@ class PlanPredictorModel(nn.Module):
             lingunet_out_channels,
             self._args.get_dropout(),
             extra_head_channels=extra_head_channels,
-            input_img_size=PADDED_WIDTH,
+            input_img_size=environment_util.PADDED_WIDTH,
             layer_single_preds=auxiliary.Auxiliary.IMPLICIT in self._auxiliaries)
 
     def _embed_environment(self, *args) -> torch.Tensor:

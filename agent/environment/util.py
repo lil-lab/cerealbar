@@ -3,7 +3,7 @@
 Functions:
     interpret_card_info: Maps from a dictionary of raw card representations to a list of Card objects.
 """
-
+import math
 from typing import List, Any, Tuple, Set
 
 from agent.environment import agent
@@ -23,6 +23,9 @@ HEX_DEPTH: float = 15.
 # The number of hexes (width and depth) in the Unity game.
 ENVIRONMENT_WIDTH: int = 25
 ENVIRONMENT_DEPTH: int = 25
+
+PADDED_WIDTH: int = 2 * int(
+    math.sqrt(math.pow(ENVIRONMENT_WIDTH, 2) + math.pow(ENVIRONMENT_DEPTH, 2))) + 1
 
 
 def interpret_card_info(raw_dict: List[Any],
@@ -161,3 +164,5 @@ def construct_object(prop_name: str,
                            agent_rotation=rotation.degree_to_rotation(rot_degree))
 
     raise ValueError('Could not construct object: ' + upper_prop_name)
+
+

@@ -1,5 +1,4 @@
-import random
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -12,6 +11,14 @@ from agent.learning import plan_losses
 from agent.learning import util as learning_util
 from agent.model.model_wrappers import model_wrapper
 from agent import util
+from torch import nn
+
+
+def normalize_trajectory_distribution(map_distribution: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    batch_size = map_distribution.size(0)
+    flat_distribution: torch.Tensor = map_distribution.view(batch_size, -1)
+
+    return nn.Softmax(dim=1)(flat_distribution).view(map_distribution.size())
 
 
 def add_trajectory_metrics(metric_results: Dict[str, Any],
@@ -76,12 +83,8 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
     # TODO: if all trajectory, then evaluate for all positions along the path
 
     full_observability: bool = model.get_arguments().get_state_rep_args().full_observability()
-
-    examples_dict = dict()
-    for example in examples:
-        examples_dict[example.get_id()] = example
     eval_ids = instruction_example.get_example_action_index_pairs(
-        examples_dict, full_observability,
+        examples, full_observability,
         model.get_arguments().get_state_rep_args().observability_refresh_rate())
 
     auxiliary_predictions_dict = dict()

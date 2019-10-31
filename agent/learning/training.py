@@ -74,9 +74,9 @@ def train(args: program_args.ProgramArgs) -> None:
 
     logging.info('Vocabulary contains ' + str(len(vocabulary)) + ' word types')
 
-    model: ModelWrapper = create_model_wrapper.get_model_wrapper(args.get_model_args(),
-                                                                 training_arguments,
-                                                                 vocabulary)
+    model: ModelWrapper = create_model_wrapper.get_model_wrapper(
+        args.get_model_args(), training_arguments, vocabulary,
+        load_pretrained=args.get_model_args().get_decoder_args().end_to_end())
     logging.info('Created model:')
     logging.info(model)
 
@@ -94,8 +94,7 @@ def train(args: program_args.ProgramArgs) -> None:
 
     if task == model_args.Task.PLAN_PREDICTOR:
         logging.info('Running on dev after training for plan prediction...')
-        predictions = plan_metrics.plan_metric_results(model, list(dataset.get_examples(
-            dataset_split.DatasetSplit.DEV).values()))
+        predictions = plan_metrics.plan_metric_results(model, dataset.get_examples(dataset_split.DatasetSplit.DEV))
         print(predictions)
 
         if training_arguments.log_with_slack():
