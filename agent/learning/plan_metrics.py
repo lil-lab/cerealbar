@@ -77,8 +77,11 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
 
     full_observability: bool = model.get_arguments().get_state_rep_args().full_observability()
 
+    examples_dict = dict()
+    for example in examples:
+        examples_dict[example.get_id()] = example
     eval_ids = instruction_example.get_example_action_index_pairs(
-        examples, full_observability,
+        examples_dict, full_observability,
         model.get_arguments().get_state_rep_args().observability_refresh_rate())
 
     auxiliary_predictions_dict = dict()

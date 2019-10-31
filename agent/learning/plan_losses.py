@@ -259,6 +259,8 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                                           environment_util.ENVIRONMENT_DEPTH)).float()
                 for position in example.get_partial_observations()[action_idx].observed_positions():
                     state_mask[position.x][position.y] = 1.
+                state_mask = state_mask.to(util.DEVICE)
+                impassable_label = impassable_label.to(util.DEVICE)
 
                 impassable_label = impassable_label * state_mask
                 impassable_score = impassable_score * state_mask
