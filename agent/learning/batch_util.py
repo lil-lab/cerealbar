@@ -64,10 +64,10 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
                                                                       torch.Tensor,
                                                                       torch.Tensor]:
     trajectory_distributions: List[torch.Tensor] = []
-    card_distributions: List[torch.Tensor] = []
-    card_masks: List[torch.Tensor] = []
-    impassable_distributions: List[torch.Tensor] = []
-    avoid_distributions: List[torch.Tensor] = []
+    goal_probabilities: List[torch.Tensor] = []
+    goal_masks: List[torch.Tensor] = []
+    obstacle_probabilities: List[torch.Tensor] = []
+    avoid_probabilities: List[torch.Tensor] = []
 
     # TODO: Partial observability
 
@@ -76,38 +76,38 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
 
         trajectory_distribution: torch.Tensor = torch.from_numpy(correct_distribution).float()
 
-        avoid_distribution = torch.zeros(environment_width, environment_depth).float()
-        card_distribution = torch.zeros(environment_width, environment_depth).float()
+        avoid_probability = torch.zeros(environment_width, environment_depth).float()
+        goal_probability = torch.zeros(environment_width, environment_depth).float()
 
         for pos, score in example.get_card_scores().items():
-            card_distribution[pos.x][pos.y] = score
+            goal_probability[pos.x][pos.y] = score
 
         # Doesn't count the card the agent was currently on.
         cards_to_reach = [card.get_position() for card in example.get_touched_cards(include_start_position=True)]
         for card in example.get_initial_cards():
             if card.get_position() not in cards_to_reach:
-                avoid_distribution[card.get_position().x][card.get_position().y] = 1.
+                avoid_probability[card.get_position().x][card.get_position().y] = 1.
 
         trajectory_distributions.append(trajectory_distribution)
-        card_distributions.append(card_distribution)
-        avoid_distributions.append(avoid_distribution)
+        goal_probabilities.append(goal_probability)
+        avoid_probabilities.append(avoid_probability)
 
-        card_mask = torch.zeros(card_distribution.size())
+        this_goal_mask = torch.zeros(goal_probability.size())
         for card in example.get_initial_cards():
-            card_mask[card.get_position().x][card.get_position().y] = 1.
-        card_masks.append(card_mask)
+            this_goal_mask[card.get_position().x][card.get_position().y] = 1.
+        goal_masks.append(this_goal_mask)
 
-        impassable_distribution = torch.zeros(environment_width, environment_depth).float()
+        obstacle_probability = torch.zeros(environment_width, environment_depth).float()
         for pos in sorted(example.get_obstacle_positions()):
             assert pos not in example.get_visited_positions()
-            impassable_distribution[pos.x][pos.y] = 1.
-        impassable_distributions.append(impassable_distribution)
+            obstacle_probability[pos.x][pos.y] = 1.
+        obstacle_probabilities.append(obstacle_probability)
 
     return (torch.stack(tuple(trajectory_distributions)),
-            torch.stack(tuple(card_distributions)).unsqueeze(1),
-            torch.stack(tuple(impassable_distributions)).unsqueeze(1),
-            torch.stack(tuple(avoid_distributions)).unsqueeze(1),
-            torch.stack(tuple(card_masks)).unsqueeze(1))
+            torch.stack(tuple(goal_probabilities)).unsqueeze(1),
+            torch.stack(tuple(obstacle_probabilities)).unsqueeze(1),
+            torch.stack(tuple(avoid_probabilities)).unsqueeze(1),
+            torch.stack(tuple(goal_masks)).unsqueeze(1))
 
 
 def batch_agent_configurations(examples: List[instruction_example.InstructionExample],

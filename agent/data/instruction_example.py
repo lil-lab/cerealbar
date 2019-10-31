@@ -1,8 +1,9 @@
 """Example of an instruction paired with agent actions."""
-import numpy as np
-
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
+
+from agent import util
 from agent.data import cereal_bar_game
 from agent.data import gameplay_action
 from agent.data import partial_observation
@@ -13,7 +14,6 @@ from agent.environment import position
 from agent.environment import state_delta
 from agent.environment import terrain
 from agent.environment import util as environment_util
-from agent import util
 
 
 class InstructionExample:
@@ -117,6 +117,42 @@ class InstructionExample:
 
     def get_partial_observations(self) -> List[partial_observation.PartialObservation]:
         return [x[2] for x in self._target_action_sequence]
+
+    def get_leader_actions(self,
+                           limit_to_instruction: bool = True,
+                           use_all_actions: bool = False) -> List[List[gameplay_action.GameplayAction]]:
+        """Returns the leader actions aligning to this instruction.
+
+        Args:
+            limit_to_instruction: Whether to only return actions that occurred during the execution of this instruction.
+            use_all_actions: TODO: What does this mean?
+        """
+        if limit_to_instruction:
+            return self._leader_actions
+        actions_from_game: List[List[gameplay_action.GameplayAction]] = self._paired_game.get_leader_actions(
+            first_turn=self._index_of_first_leader_turn,
+            use_all_actions=use_all_actions)
+        if use_all_actions:
+            return actions_from_game
+
+        for action1, action2 in zip(self._leader_actions, actions_from_game):
+            if action1 != action2:
+                raise ValueError('Actions not the same!')
+        return actions_from_game
+
+    def get_expected_sets(self) -> List[Tuple[List[card.Card], List[card.Card]]]:
+        """Gets the sets that should be made during this instruction and afterwards."""
+        return self._paired_game.get_expected_sets(first_instruction=self._example_idx_in_interaction)
+
+    def get_number_of_moves_in_first_turn(self) -> int:
+        return self._number_of_steps_in_first_turn
+
+    def get_final_state(self) -> state_delta.StateDelta:
+        if self._target_action_sequence[-1][1] != agent_actions.AgentAction.STOP:
+            raise ValueError('Final action was not STOP')
+
+        # The final state is the prior state for the last action, which is the STOP action.
+        return self._target_action_sequence[-1][0]
 
     def get_touched_cards(self,
                           start_idx: int = 0,

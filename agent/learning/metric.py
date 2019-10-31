@@ -2,6 +2,8 @@
 
 from enum import Enum
 
+# TODO: Use this in more places in the code.
+
 
 class Metric(Enum):
     # Exact sequence accuracy.

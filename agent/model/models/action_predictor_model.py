@@ -4,23 +4,34 @@ Clases:
     CardPredictorModel (nn.Module): Given an instruction and environment state, predicts which of the possible card
         combinations should be touched by the agent when executing the instruction.
 """
-from typing import Dict, List, Optional, Tuple
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import copy
 import torch
-import torch.nn as nn
+from torch import nn
 
 from agent import util
-from agent.config import model_args
-from agent.data import instruction_example
 from agent.environment import agent_actions
 from agent.environment import util as environment_util
 from agent.learning import auxiliary
 from agent.learning import batch_util
 from agent.learning import plan_metrics
+from agent.learning import sampling
 from agent.model.models import plan_predictor_model
 from agent.model.modules import map_distribution_embedder
 from agent.model.modules import word_embedder
 from agent.model.utilities import rnn
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, List, Optional, Tuple
+
+    from agent.config import evaluation_args
+    from agent.config import model_args
+    from agent.data import instruction_example
+    from agent.environment import state_delta
+    from agent.simulation import game
 
 
 class ActionPredictorModel(nn.Module):
@@ -158,6 +169,108 @@ class ActionPredictorModel(nn.Module):
                                                                                               num_actions,
                                                                                               -1)
 
+    def _predict_one_action(
+            self, action_sequence: List[agent_actions.AgentAction], game_server: game.Game,
+            state_distribution: torch.Tensor,
+            rnn_state: Optional[Tuple[torch.Tensor,
+                                      torch.Tensor]]) -> Tuple[agent_actions.AgentAction,
+                                                               Optional[Tuple[torch.Tensor, torch.Tensor]],
+                                                               state_delta.StateDelta]:
+        # Deal with the state
+        follower = game_server.get_game_info().follower
+        current_position = follower.get_position()
+
+        # Transform and crop
+        embedded_state = \
+            self._map_distribution_embedder(
+                state_distribution,
+                torch.tensor([[float(current_position.x), float(current_position.y)]]).to(util.DEVICE),
+                torch.tensor([follower.get_rotation().to_radians()]).to(util.DEVICE))
+
+        new_rnn_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        if self._args.get_decoder_args().use_recurrence():
+            rnn_input = \
+                self._action_embedder(torch.tensor([self._action_embedder.get_index(str(action_sequence[-1]))],
+                                                   dtype=torch.long).to(util.DEVICE))
+
+            rnn_input = torch.cat((rnn_input, embedded_state), dim=1)
+
+            output, new_rnn_state = self._rnn(rnn_input.unsqueeze(1), rnn_state)
+
+            # Predict an action
+            action_scores: torch.Tensor = \
+                self._output_layer(torch.cat((output.view(1, -1), embedded_state), dim=1))[0]
+        else:
+            action_scores: torch.Tensor = embedded_state[0]
+
+        predicted_action: agent_actions.AgentAction = sampling.constrained_argmax_sampling(
+            nn.functional.softmax(action_scores, dim=0), get_possible_actions(game_server, follower))
+
+        resulting_game_state = game_server.execute_follower_action(predicted_action)
+
+        return predicted_action, new_rnn_state, resulting_game_state
+
+    def _initialize_rnn(self, batch_size: int):
+        return (torch.zeros(self._args.get_decoder_args().get_num_layers(),
+                            batch_size,
+                            self._args.get_decoder_args().get_hidden_size()).to(util.DEVICE),
+                torch.zeros(self._args.get_decoder_args().get_num_layers(),
+                            batch_size,
+                            self._args.get_decoder_args().get_hidden_size()).to(util.DEVICE))
+
+    def _predict_action_sequence(
+            self, goal_probabilities: torch.Tensor, trajectory_distribution: torch.Tensor,
+            obstacle_probabilities: torch.Tensor, avoid_probabilities: torch.Tensor, game_server: game.Game,
+            evaluation_arguments: evaluation_args.EvaluationArgs) -> Tuple[List[agent_actions.AgentAction],
+                                                                           List[state_delta.StateDelta]]:
+        action_sequence: List[agent_actions.AgentAction] = [agent_actions.AgentAction.START]
+        stopped: bool = False
+        timestep: int = 0
+
+        rnn_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        if self._args.get_decoder_args().use_recurrence():
+            rnn_state = self._initialize_rnn(1)
+
+        resulting_game_state = copy.deepcopy(game_server.get_game_info())
+        visited_states: List[state_delta.StateDelta] = [resulting_game_state]
+
+        while timestep < evaluation_arguments.get_maximum_generation_length() and not stopped:
+            # [1] Expand the trajectories
+            timestep_map = None
+            if self._args.get_decoder_args().use_trajectory_distribution():
+                timestep_map: torch.Tensor = trajectory_distribution
+
+            if self._args.get_decoder_args().use_goal_probabilities():
+                if timestep_map is not None:
+                    timestep_map = torch.cat((goal_probabilities.unsqueeze(0), timestep_map), dim=1)
+                else:
+                    timestep_map = goal_probabilities.unsqueeze(0)
+            if self._args.get_decoder_args().use_obstacle_probabilities():
+                if timestep_map is not None:
+                    timestep_map = torch.cat((obstacle_probabilities, timestep_map), dim=1)
+                else:
+                    timestep_map = obstacle_probabilities
+            if self._args.get_decoder_args().use_avoid_probabilities():
+                if timestep_map is not None:
+                    timestep_map = torch.cat((avoid_probabilities, timestep_map), dim=1)
+                else:
+                    timestep_map = avoid_probabilities
+
+            pred_action, rnn_state, resulting_game_state = \
+                self._predict_one_action(action_sequence,
+                                         game_server,
+                                         timestep_map.to(util.DEVICE),
+                                         rnn_state)
+            visited_states.append(resulting_game_state)
+
+            action_sequence.append(pred_action)
+            if pred_action == agent_actions.AgentAction.STOP or not game_server.valid_state():
+                stopped = True
+
+            timestep += 1
+
+        return action_sequence[1:], visited_states
+
     def batch_inputs(self, examples: List[instruction_example.InstructionExample]) -> List[torch.Tensor]:
         """ Batches the examples into inputs for the network.
 
@@ -280,3 +393,88 @@ class ActionPredictorModel(nn.Module):
 
         # If not using recurrence, these are already the action scores.
         return embedded_state, auxiliary_predictions
+
+    def get_predictions(self,
+                        example: instruction_example.InstructionExample,
+                        game_server: game.Game,
+                        evaluation_arguments: evaluation_args.EvaluationArgs,
+                        goal_probabilities: torch.Tensor = None,
+                        trajectory_distribution: torch.Tensor = None,
+                        time_vector: torch.Tensor = None,
+                        obstacle_probabilities: torch.Tensor = None,
+                        avoid_probabilities: torch.Tensor = None) -> Tuple[List[agent_actions.AgentAction],
+                                                                           Dict[auxiliary.Auxiliary, torch.Tensor],
+                                                                           List[state_delta.StateDelta]]:
+        """ Gets predictions for a model doing inference (i.e., not gold forcing).
+
+        Arguments:
+            example: Example. The example to get outputs for.
+            game_server: Game. The game server to use and query during inference.
+            evaluation_arguments: EvalArgs. The arguments for evaluation.
+            goal_probabilities: torch.Tensor. An optional distribution over cards.
+            trajectory_distribution: torch.Tensor. An optional distribution over trajectories.
+            time_vector: torch.Tensor. An optional score for each timestep.
+            obstacle_probabilities: torch.Tensor. An optional distribution over impassable locations.
+            avoid_probabilities: torch.Tensor. An optional distribution over locations to avoid.
+        """
+        # Not gold forcing.
+        if evaluation_arguments is None:
+            raise ValueError('Evaluation arguments must be passed if providing a game server.')
+
+        # Get the distribution
+        auxiliary_predictions: Dict[auxiliary.Auxiliary, Any] = dict()
+        if trajectory_distribution is None:
+            if self._end_to_end:
+                raise NotImplementedError
+                # Outputs of this should be masked if necessary.
+                goal_probabilities, auxiliary_predictions = self._hex_predictor.get_predictions(example)
+
+                avoid_probabilities = None
+                if auxiliary.Auxiliary.AVOID_LOCS in auxiliary_predictions:
+                    # This has already gone through sigmoid (and mask if masked).
+                    avoid_probabilities = auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS].unsqueeze(1)
+
+                # These need to be normalized -- hex_predictor does not return normalized trajectories.
+                trajectory_distribution = None
+                if auxiliary.Auxiliary.TRAJECTORY in auxiliary_predictions:
+                    trajectory_distribution, time_vector = \
+                        normalize_trajectory_distribution(
+                            auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0],
+                            auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1].unsqueeze(0)
+                            if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else None)
+
+                # These are already masked and put through a sigmoid.
+                if goal_probabilities is not None:
+                    auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS] = goal_probabilities.squeeze()
+
+                obstacle_probabilities = None
+                if self._args.get_decoder_args().use_impassable_locations():
+                    # This is already put through a sigmoid.
+                    obstacle_probabilities = auxiliary_predictions[auxiliary.Auxiliary.IMPASSABLE_LOCS].unsqueeze(1)
+            else:
+                (trajectory_distribution,
+                 goal_probabilities,
+                 obstacle_probabilities,
+                 avoid_probabilities,
+                 _) = batch_util.batch_map_distributions([example],
+                                                         environment_util.ENVIRONMENT_WIDTH,
+                                                         environment_util.ENVIRONMENT_DEPTH,
+                                                         self._args.get_decoder_args().weight_trajectory_by_time())
+                goal_probabilities = goal_probabilities[0]
+
+        if evaluation_arguments.visualize_auxiliaries():
+            if not isinstance(game_server, unity_game.UnityGame):
+                raise ValueError('Can only visualize auxiliaries with a Unity game.')
+
+            hex_inference.visualize_probabilities(goal_probabilities.numpy()[0], trajectory_distribution.numpy()[0][0],
+                                                  obstacle_probabilities.numpy()[0][0],
+                                                  avoid_probabilities.numpy()[0][0], game_server)
+
+        action_sequence, visited_states = self._predict_action_sequence(goal_probabilities,
+                                                                        trajectory_distribution,
+                                                                        obstacle_probabilities,
+                                                                        avoid_probabilities,
+                                                                        game_server,
+                                                                        evaluation_arguments)
+
+        return action_sequence, auxiliary_predictions, visited_states

@@ -1,18 +1,28 @@
 """Contains the superclass for a game."""
+from __future__ import annotations
+
 import copy
 import logging
 import random
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Set
 
-from agent.config import game_args
 from agent.data import gameplay_action
-from agent.environment import agent_actions, state_delta
-from agent.environment import card
+from agent.environment import agent_actions
 from agent.environment import environment_objects
+from agent.environment import rotation
 from agent.environment import terrain
-from agent.environment import position
 from agent.environment import util as environment_util
+from typing import TYPE_CHECKING
+
+from agent.simulation.planner import get_neighbor_move_position
+
+if TYPE_CHECKING:
+    from typing import List, Tuple, Set
+    from agent.config import game_args
+    from agent.environment import agent
+    from agent.environment import card
+    from agent.environment import position
+    from agent.environment import state_delta
 
 
 class Game(ABC):
@@ -421,4 +431,29 @@ class Game(ABC):
             self.end_turn()
 
         del prev_state_delta
+
+    def get_possible_actions(self, player: agent.Agent) -> List[agent_actions.AgentAction]:
+        possible_actions: List[agent_actions.AgentAction] = [agent_actions.AgentAction.STOP,
+                                                             agent_actions.AgentAction.RR,
+                                                             agent_actions.AgentAction.RL]
+
+        player_position: position.Position = player.get_position()
+        player_rotation: rotation.Rotation = player.get_rotation()
+
+        facing_position, behind_position = get_neighbor_move_position(player_position, player_rotation)
+
+        if facing_position not in self.get_obstacle_positions() \
+                and facing_position.x >= 0 and facing_position.y >= 0 \
+                and facing_position.x < environment_util.ENVIRONMENT_WIDTH \
+                and facing_position.y < environment_util.ENVIRONMENT_DEPTH:
+            possible_actions.append(agent_actions.AgentAction.MF)
+
+        if behind_position not in self.get_obstacle_positions() \
+                and behind_position.x >= 0 and behind_position.y >= 0 \
+                and behind_position.x < environment_util.ENVIRONMENT_WIDTH \
+                and behind_position.y < environment_util.ENVIRONMENT_DEPTH:
+            possible_actions.append(agent_actions.AgentAction.MB)
+
+        return possible_actions
+
 
