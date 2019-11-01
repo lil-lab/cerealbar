@@ -271,6 +271,14 @@ class ActionPredictorModel(nn.Module):
 
         return action_sequence[1:], visited_states
 
+    def save(self, save_file: str) -> None:
+        """ Saves the model parameters to a specified location.
+
+        Args:
+            save_file: str. The location to save to.
+        """
+        torch.save(self.state_dict(), save_file)
+
     def batch_inputs(self, examples: List[instruction_example.InstructionExample]) -> List[torch.Tensor]:
         """ Batches the examples into inputs for the network.
 

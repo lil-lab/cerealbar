@@ -67,13 +67,13 @@ def get_neighbor_move_position(current_position: position.Position,
 
     if current_position.y % 2 == 0:
         for offset, rot in EVEN_ROTATIONS.items():
-            if rot == rotation:
+            if rot == current_rotation:
                 facing_position = position.Position(current_position.x + offset[0], current_position.y + offset[1])
             elif rot == back_rotation:
                 behind_position = position.Position(current_position.x + offset[0], current_position.y + offset[1])
     else:
         for offset, rot in ODD_ROTATIONS.items():
-            if rot == rotation:
+            if rot == current_rotation:
                 facing_position = position.Position(current_position.x + offset[0], current_position.y + offset[1])
             elif rot == back_rotation:
                 behind_position = position.Position(current_position.x + offset[0], current_position.y + offset[1])

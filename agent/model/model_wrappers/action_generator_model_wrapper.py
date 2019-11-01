@@ -1,22 +1,14 @@
+from __future__ import annotations
+
 import logging
 import math
+import os
+import pickle
 import random
-from typing import Any, Dict, List, Set, Tuple
-
 import torch
-from pycrayon import crayon
-from torch import nn
 
 from agent import util
-from agent.config import evaluation_args
-from agent.config import game_args
-from agent.config import model_args
-from agent.config import training_args
-from agent.data import aggregated_instruction_example
-from agent.data import cereal_bar_game
 from agent.data import dataset_split
-from agent.data import game_dataset
-from agent.data import instruction_example
 from agent.environment import agent_actions
 from agent.learning import action_generator_metrics
 from agent.learning import auxiliary
@@ -24,6 +16,20 @@ from agent.learning import batch_loss
 from agent.learning import plan_losses
 from agent.model.model_wrappers import model_wrapper
 from agent.model.models import action_predictor_model
+from torch import nn
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, List, Set, Tuple
+    from pycrayon import crayon
+    from agent.data import aggregated_instruction_example
+    from agent.data import cereal_bar_game
+    from agent.data import game_dataset
+    from agent.data import instruction_example
+    from agent.config import evaluation_args
+    from agent.config import game_args
+    from agent.config import model_args
+    from agent.config import training_args
 
 MAXIMUM_NUM_END_TO_END_EPOCHS = 25
 
@@ -380,7 +386,7 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                 # Save the examples under a file specific to this epoch.
                 if new_examples:
                     with open(
-                            os.path.join(training_arguments.get_save_dir(),
+                            os.path.join(training_arguments.get_save_directory(),
                                          'aggregated_train_examples_epoch' + str(num_epochs) + '.pkl'), 'wb') as ofile:
                         pickle.dump(new_examples, ofile)
 
@@ -415,9 +421,9 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                 better = True
 
             if better:
-                filename = os.path.join(training_arguments.get_save_dir(), 'model_' + str(num_epochs) + suffix + '.pt')
+                filename = os.path.join(training_arguments.get_save_directory(), 'model_%r%r.pt' % (num_epochs, suffix))
                 best_filename = filename
-                patience *= training_arguments.get_patience_update_ratio()
+                patience *= training_arguments.get_patience_update_factor()
                 countdown = int(patience)
                 logging.info('Resetting countdown to ' + str(countdown))
                 self.save(filename)
@@ -455,4 +461,4 @@ def _eval_and_log_metrics(model: ActionGeneratorModelWrapper,
     experiment.add_scalar_value(prefix + ' environment acc', environment_accuracy, step=step)
     experiment.add_scalar_value(prefix + ' card acc', card_accuracy, step=step)
 
-    return exact_state_accuracy, card_accuracy
+    return card_accuracy
