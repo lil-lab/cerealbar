@@ -23,6 +23,7 @@ from agent.model.models import plan_predictor_model
 from agent.model.modules import map_distribution_embedder
 from agent.model.modules import word_embedder
 from agent.model.utilities import rnn
+from agent.simulation import planner
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional, Tuple
@@ -204,7 +205,7 @@ class ActionPredictorModel(nn.Module):
             action_scores: torch.Tensor = embedded_state[0]
 
         predicted_action: agent_actions.AgentAction = sampling.constrained_argmax_sampling(
-            nn.functional.softmax(action_scores, dim=0), get_possible_actions(game_server, follower))
+            nn.functional.softmax(action_scores, dim=0), planner.get_possible_actions(game_server, follower))
 
         resulting_game_state = game_server.execute_follower_action(predicted_action)
 
@@ -234,7 +235,8 @@ class ActionPredictorModel(nn.Module):
         resulting_game_state = copy.deepcopy(game_server.get_game_info())
         visited_states: List[state_delta.StateDelta] = [resulting_game_state]
 
-        while timestep < evaluation_arguments.get_maximum_generation_length() and not stopped:
+        while (timestep < evaluation_arguments.get_maximum_generation_length() or
+               evaluation_arguments.get_maximum_generation_length() < 0) and not stopped:
             # [1] Expand the trajectories
             timestep_map = None
             if self._args.get_decoder_args().use_trajectory_distribution():
@@ -256,15 +258,15 @@ class ActionPredictorModel(nn.Module):
                 else:
                     timestep_map = avoid_probabilities
 
-            pred_action, rnn_state, resulting_game_state = \
+            predicted_action, rnn_state, resulting_game_state = \
                 self._predict_one_action(action_sequence,
                                          game_server,
                                          timestep_map.to(util.DEVICE),
                                          rnn_state)
             visited_states.append(resulting_game_state)
 
-            action_sequence.append(pred_action)
-            if pred_action == agent_actions.AgentAction.STOP or not game_server.valid_state():
+            action_sequence.append(predicted_action)
+            if predicted_action == agent_actions.AgentAction.STOP or not game_server.valid_state():
                 stopped = True
 
             timestep += 1

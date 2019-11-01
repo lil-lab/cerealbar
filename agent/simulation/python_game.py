@@ -112,7 +112,16 @@ class PythonGame(game.Game):
                 self._detect_invalid_set(selected_shapes, selected_colors, selected_counts)
 
     def _execute_follower(self, action: agent_actions.AgentAction):
-        raise NotImplementedError
+        follower: agent.Agent = self._current_state_delta.follower
+
+        new_position, new_rotation = planner.get_new_player_orientation(follower, action, self._obstacle_positions)
+
+        # Set the follower's state
+        self._current_state_delta.follower = agent.Agent(environment_objects.ObjectType.FOLLOWER, new_position,
+                                                         new_rotation)
+
+        if action in {agent_actions.AgentAction.MB, agent_actions.AgentAction.MF}:
+            self._update_card_with_move(new_position)
 
     def _execute_leader(self, action: agent_actions.AgentAction):
         leader: agent.Agent = self._current_state_delta.leader
@@ -126,7 +135,7 @@ class PythonGame(game.Game):
             self._update_card_with_move(new_position)
 
     def send_command(self, command: str):
-        raise NotImplementedError
+        pass
 
     def _add_cards(self, new_cards: List[card.Card]):
         raise NotImplementedError
