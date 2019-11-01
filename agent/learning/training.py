@@ -116,6 +116,6 @@ def train(args: program_args.ProgramArgs) -> None:
         for metric_name, result in dict_results.items():
             if training_arguments.log_with_slack():
                 util.send_slack_message(username=training_arguments.get_experiment_name(),
-                                        message=str(metric_name) + ' after training: ' + '{0.2f}'.format(result),
+                                        message=str(metric_name) + ' after training: ' + '{0:.2f}'.format(result),
                                         channel=SLACK_CHANNEL)
-            logging.info(str(metric_name) + ' after training: ' + '{0.2f}'.format(result))
+            logging.info(str(metric_name) + ' after training: ' + '{0:.2f}'.format(result))
