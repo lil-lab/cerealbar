@@ -41,14 +41,15 @@ class TrainingArgs(args.Args):
                             type=lambda x: bool(strtobool(x)),
                             help='Whether to log experiment details (starting, epoch accuracies, and ending) to a '
                                  'Slack channel.')
+
+        # TODO: Neither of the two following are actually used anywhere.
         parser.add_argument('--validation_metrics',
                             default=[metric.Metric.RELAXED_ENVIRONMENT_ACCURACY,
                                      metric.Metric.SEQUENCE_ACCURACY,
                                      metric.Metric.CARD_ACCURACY,
                                      metric.Metric.EXACT_ENVIRONMENT_ACCURACY,
                                      metric.Metric.AGENT_DISTANCE,
-                                     metric.Metric.SCORE,
-                                     metric.Metric.POSITION_PREFIX],
+                                     metric.Metric.SCORE],
                             nargs='+',
                             type=metric.Metric,
                             help='The metrics to compute on the validation set each epoch.')
@@ -58,8 +59,7 @@ class TrainingArgs(args.Args):
                                      metric.Metric.CARD_ACCURACY,
                                      metric.Metric.EXACT_ENVIRONMENT_ACCURACY,
                                      metric.Metric.AGENT_DISTANCE,
-                                     metric.Metric.SCORE,
-                                     metric.Metric.POSITION_PREFIX],
+                                     metric.Metric.SCORE],
                             nargs='+',
                             type=metric.Metric,
                             help='The metrics to compute on the training set each epoch.')

@@ -153,7 +153,7 @@ class PythonGame(game.Game):
         self._detect_invalid_set(selected_shapes, selected_colors, selected_counts)
 
     def get_score(self) -> int:
-        raise NotImplementedError
+        return self._score
 
     def get_game_info(self, force_update: bool = False) -> state_delta.StateDelta:
         return self._current_state_delta

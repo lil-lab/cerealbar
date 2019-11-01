@@ -11,8 +11,10 @@ from agent.config import training_args
 from agent.data import dataset_split
 from agent.data import game_dataset
 from agent.data import loading
+from agent.learning import action_generator_metrics
 from agent.learning import plan_metrics
 from agent.learning import util
+from agent.model.model_wrappers import action_generator_model_wrapper
 from agent.model.model_wrappers import create_model_wrapper
 
 SLACK_CHANNEL: str = ''
@@ -105,15 +107,15 @@ def train(args: program_args.ProgramArgs) -> None:
 
     elif task == model_args.Task.ACTION_GENERATOR:
         logging.info('Running on dev after training for action prediction...')
-        dict_results = evaluate_action_prediction(model,
-                                                  dataset,
-                                                  args,
-                                                  'final',
-                                                  True,
-                                                  full_game=args.get_model_args().get_decoder_args().end_to_end())
-        if training_arguments.log_with_slack():
-            for metric_name, list_results in dict_results.items():
+        assert isinstance(model, action_generator_model_wrapper.ActionGeneratorModelWrapper)
+        dict_results = action_generator_metrics.execution_accuracies(model,
+                                                                     game_arguments=args.get_game_args(),
+                                                                     evaluation_arguments=args.get_evaluation_args(),
+                                                                     instruction_examples=list(dataset.get_examples(
+                                                                         dataset_split.DatasetSplit.DEV).values()))
+        for metric_name, result in dict_results.items():
+            if training_arguments.log_with_slack():
                 util.send_slack_message(username=training_arguments.get_experiment_name(),
-                                        message=str(metric_name) + ' after training: ' + str(
-                                            np.mean(np.array(list_results))),
+                                        message=str(metric_name) + ' after training: ' + '{0.2f}'.format(result),
                                         channel=SLACK_CHANNEL)
+            logging.info(str(metric_name) + ' after training: ' + '{0.2f}'.format(result))

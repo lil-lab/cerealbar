@@ -1,74 +1,80 @@
 from __future__ import annotations
 
+import numpy as np
 from typing import TYPE_CHECKING
 
-from agent.environment import state_delta
+from agent import util
+from agent.learning import metric
 from agent.simulation import python_game
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List
+    from typing import Dict, List
     from agent.config import evaluation_args
     from agent.config import game_args
+    from agent.data import cereal_bar_game
     from agent.data import instruction_example
-    from agent.environment import agent
     from agent.model.model_wrappers import action_generator_model_wrapper
 
 
 def execution_accuracies(model: action_generator_model_wrapper.ActionGeneratorModelWrapper,
-                         examples: List[instruction_example.InstructionExample],
                          game_arguments: game_args.GameArgs,
-                         evaluation_arguments: evaluation_args.EvaluationArgs):
-    sequence_accuracy_sum = 0.
-    exact_state_sum = 0.
-    position_sum = 0.
-    environment_accuracy_sum = 0.
-    card_state_accuracy_sum = 0.
+                         evaluation_arguments: evaluation_args.EvaluationArgs,
+                         instruction_examples: List[instruction_example.InstructionExample] = None,
+                         game_examples: List[cereal_bar_game.CerealBarGame] = None):
+    metric_dict: Dict[metric.Metric, List[float]] = {metric.Metric.SCORE: list(),
+                                                     metric.Metric.CARD_ACCURACY: list(),
+                                                     metric.Metric.SEQUENCE_ACCURACY: list(),
+                                                     metric.Metric.RELAXED_ENVIRONMENT_ACCURACY: list(),
+                                                     metric.Metric.AGENT_DISTANCE: list(),
+                                                     metric.Metric.EXACT_ENVIRONMENT_ACCURACY: list(),
+                                                     metric.Metric.PROPORTION_POINTS_CASCADING: list(),
+                                                     metric.Metric.PROPORTION_FOLLOWED_CASCADING: list(),
+                                                     metric.Metric.PROPORTION_VALID_CASCADING: list()}
 
-    auxiliary_predictions_dict: Dict[str, Any] = dict()
+    if instruction_examples:
+        with util.get_progressbar('evaluating individual instructions...', len(instruction_examples)) as pbar:
+            for i, example in enumerate(instruction_examples):
+                pbar.update(i)
 
-    for example in examples:
-        game_server: python_game.PythonGame = python_game.PythonGame(game_arguments,
-                                                                     example.get_hexes(),
-                                                                     example.get_objects(),
-                                                                     example.get_initial_state(),
-                                                                     leader_actions=None)
+                # Set up the server and reset the state
+                game_server: python_game.PythonGame = python_game.PythonGame(game_arguments,
+                                                                             example.get_hexes(),
+                                                                             example.get_objects(),
+                                                                             example.get_initial_state(),
+                                                                             leader_actions=None)
 
-        game_server.reset_state(leader_actions=example.get_leader_actions(),
-                                state=example.get_initial_state(),
-                                expected_sets=example.get_expected_sets(),
-                                num_steps_remaining=example.get_number_of_moves_in_first_turn())
+                game_server.reset_state(leader_actions=example.get_leader_actions(),
+                                        state=example.get_initial_state(),
+                                        expected_sets=example.get_expected_sets(),
+                                        num_steps_remaining=example.get_number_of_moves_in_first_turn())
 
-        correct_sequence: List[str] = example.get_action_sequence()
-        correct_final_follower: agent.Agent = example.get_final_state().follower
+                # Run inference
+                predicted_sequence, auxiliary_predictions, _ = \
+                    model.get_predictions(example, game_server=game_server, evaluation_arguments=evaluation_arguments)
 
-        predicted_sequence, auxiliary_predictions, _ = \
-            model.get_predictions(example, game_server=game_server, evaluation_arguments=evaluation_arguments)
-        predicted_sequence = [str(action) for action in predicted_sequence]
-        if game_server.valid_state():
-            game_server.finish_all_leader_actions()
+                predicted_sequence = [str(action) for action in predicted_sequence]
 
-        predicted_follower = game_server.get_game_info().follower
+                if game_server.valid_state():
+                    game_server.finish_all_leader_actions()
 
-        auxiliary_predictions_dict[example.get_id()] = auxiliary_predictions
+                # Compute the metrics
+                metric_dict[metric.Metric.SCORE].append(game_server.get_score())
+                for metric_name in metric.INSTRUCTION_METRICS:
+                    resulting_metric: float = metric.compute_instruction_metric(
+                        metric_name, example, predicted_sequence, game_server.get_game_info(),
+                        evaluation_arguments.get_distance_threshold())
 
-        cards_same = state_delta.card_states_equal(example.get_final_state().cards, game_server.get_game_info().cards)
+                    metric_dict[metric_name].append(resulting_metric)
 
-        if correct_sequence == predicted_sequence:
-            sequence_accuracy_sum += 1.
+    if game_examples:
+        raise ValueError('Full-game inference is not yet supported.')
 
-        if cards_same:
-            card_state_accuracy_sum += 1.
+    means_dict: Dict[metric.Metric, float] = dict()
+    for metric_name, values in metric_dict.items():
+        if values:
+            means_dict[metric_name] = np.mean(np.array(values)).item()
 
-        if correct_final_follower.get_position() == predicted_follower.get_position():
-            position_sum += 1.
-            if cards_same:
-                environment_accuracy_sum += 1.
-                if correct_final_follower.get_rotation() == predicted_follower.get_rotation():
-                    exact_state_sum += 1.
+            if 'ACCURACY' in str(metric_name):
+                means_dict[metric_name] = 100. * means_dict[metric_name]
 
-    return (sequence_accuracy_sum / len(examples),
-            position_sum / len(examples),
-            exact_state_sum / len(examples),
-            environment_accuracy_sum / len(examples),
-            card_state_accuracy_sum / len(examples),
-            auxiliary_predictions_dict)
+    return means_dict

@@ -273,6 +273,14 @@ class ActionPredictorModel(nn.Module):
 
         return action_sequence[1:], visited_states
 
+    def load(self, save_file: str) -> None:
+        """ Loads model parameters from a specified filename.
+
+        Arguments:
+            save_file: str. The file to load from.
+        """
+        self.load_state_dict(torch.load(save_file, map_location=util.DEVICE))
+
     def save(self, save_file: str) -> None:
         """ Saves the model parameters to a specified location.
 

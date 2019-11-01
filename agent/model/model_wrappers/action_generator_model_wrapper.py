@@ -5,7 +5,10 @@ import math
 import os
 import pickle
 import random
+from typing import TYPE_CHECKING
+
 import torch
+from torch import nn
 
 from agent import util
 from agent.data import dataset_split
@@ -13,11 +16,10 @@ from agent.environment import agent_actions
 from agent.learning import action_generator_metrics
 from agent.learning import auxiliary
 from agent.learning import batch_loss
+from agent.learning import metric
 from agent.learning import plan_losses
 from agent.model.model_wrappers import model_wrapper
 from agent.model.models import action_predictor_model
-from torch import nn
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Set, Tuple
@@ -405,7 +407,7 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
             suffix = ''
             better = False
             if validation_card_state_accuracy > maximum_card_state_accuracy:
-                logging.info('Best card acc at %f', validation_card_state_accuracy)
+                logging.info('Best card acc at ' + '{0:.2f}'.format(validation_card_state_accuracy) + '%')
                 maximum_card_state_accuracy = validation_card_state_accuracy
                 suffix += '_card'
                 better = True
@@ -441,12 +443,10 @@ def _eval_and_log_metrics(model: ActionGeneratorModelWrapper,
                           experiment: crayon.CrayonExperiment,
                           prefix: str,
                           step: int):
-    (sequence_accuracy, position_accuracy, exact_state_accuracy, environment_accuracy, card_accuracy,
-     auxiliary_predictions) = \
-        action_generator_metrics.execution_accuracies(model,
-                                                      examples,
-                                                      game_arguments,
-                                                      evaluation_arguments)
+    metric_results = action_generator_metrics.execution_accuracies(model,
+                                                                   game_arguments,
+                                                                   evaluation_arguments,
+                                                                   instruction_examples=examples)
 
     if model.get_auxiliaries():
         raise ValueError('Action generator models with auxiliaries not yet supported.')
@@ -455,10 +455,14 @@ def _eval_and_log_metrics(model: ActionGeneratorModelWrapper,
                                prefix,
                                experiment)
 
-    experiment.add_scalar_value(prefix + ' exact acc', sequence_accuracy, step=step)
-    experiment.add_scalar_value(prefix + ' position acc', position_accuracy, step=step)
-    experiment.add_scalar_value(prefix + ' exact config acc', exact_state_accuracy, step=step)
-    experiment.add_scalar_value(prefix + ' environment acc', environment_accuracy, step=step)
+    experiment.add_scalar_value(prefix + ' exact acc', metric_results[metric.Metric.SEQUENCE_ACCURACY], step=step)
+    experiment.add_scalar_value(prefix + ' agent distance', metric_results[metric.Metric.AGENT_DISTANCE], step=step)
+    experiment.add_scalar_value(prefix + ' exact config acc', metric_results[metric.Metric.EXACT_ENVIRONMENT_ACCURACY],
+                                step=step)
+    experiment.add_scalar_value(prefix + ' environment acc', metric_results[metric.Metric.RELAXED_ENVIRONMENT_ACCURACY],
+                                step=step)
+
+    card_accuracy = metric_results[metric.Metric.CARD_ACCURACY]
     experiment.add_scalar_value(prefix + ' card acc', card_accuracy, step=step)
 
     return card_accuracy
