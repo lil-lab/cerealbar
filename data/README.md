@@ -145,6 +145,6 @@ as complete.
 - [ ] `turn_id` field for `finish command`
 - [ ] Remove fields like `card_result` and `set_result` in instruction
 - [ ] Anonymize Turker IDs
-- [ ] Make sure that the game states file doesn't have any
+- [x] Make sure that the game states file doesn't have any
 PII for turkers
-- [ ] Add in the preprocessed game state pickle file
+- [x] Add in the preprocessed game state pickle file
