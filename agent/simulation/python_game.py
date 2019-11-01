@@ -138,7 +138,19 @@ class PythonGame(game.Game):
         pass
 
     def _add_cards(self, new_cards: List[card.Card]):
-        raise NotImplementedError
+        # Make sure the card selection is correct according to the agents' positions.
+        # All cards should be unselected, unless either agent happens to be on top of a newly-added card.
+        for new_card in new_cards:
+            if new_card.get_position() in {self._current_state_delta.leader.get_position(),
+                                       self._current_state_delta.follower.get_position()}:
+                new_card.update_selection(card.CardSelection.SELECTED)
+                self._selected_cards.append(new_card)
+            else:
+                new_card.update_selection(card.CardSelection.UNSELECTED)
+        selected_colors: List[card.CardColor] = [selected_card.get_color() for selected_card in self._selected_cards]
+        selected_counts: List[card.CardCount] = [selected_card.get_count() for selected_card in self._selected_cards]
+        selected_shapes: List[card.CardShape] = [selected_card.get_shape() for selected_card in self._selected_cards]
+        self._detect_invalid_set(selected_shapes, selected_colors, selected_counts)
 
     def get_score(self) -> int:
         raise NotImplementedError
