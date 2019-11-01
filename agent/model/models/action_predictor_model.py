@@ -261,6 +261,7 @@ class ActionPredictorModel(nn.Module):
                                          game_server,
                                          timestep_map.to(util.DEVICE),
                                          rnn_state)
+            print('Predicted action: %r' % pred_action)
             visited_states.append(resulting_game_state)
 
             action_sequence.append(pred_action)

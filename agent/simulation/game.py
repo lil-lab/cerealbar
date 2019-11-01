@@ -8,7 +8,9 @@ from abc import ABC, abstractmethod
 
 from agent.data import gameplay_action
 from agent.environment import agent_actions
+from agent.environment import card
 from agent.environment import environment_objects
+from agent.environment import position
 from agent.environment import rotation
 from agent.environment import state_delta
 from agent.environment import terrain
@@ -21,8 +23,6 @@ if TYPE_CHECKING:
     from typing import List, Tuple, Set
     from agent.config import game_args
     from agent.environment import agent
-    from agent.environment import card
-    from agent.environment import position
 
 
 class Game(ABC):
