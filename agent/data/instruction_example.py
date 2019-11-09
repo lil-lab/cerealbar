@@ -1,5 +1,5 @@
 """Example of an instruction paired with agent actions."""
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -192,15 +192,17 @@ class InstructionExample:
     def get_correct_trajectory_distribution(self,
                                             weight_by_time: bool,
                                             full_observability: bool = True,
-                                            action_index: int = 0) -> np.array:
+                                            action_index: int = 0,
+                                            observed_positions: Set[position.Position] = None) -> np.array:
 
-        distribution: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+        distribution: np.array = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
         if weight_by_time:
             path: List[position.Position] = [delta.follower.get_position() for delta in self.get_state_deltas()]
 
             if not full_observability:
                 # Remove things from the path that were not observed at this point.
-                observed_positions = self.get_partial_observations()[action_index].observed_positions()
+                if not observed_positions:
+                    observed_positions = self.get_partial_observations()[action_index].currently_observed_positions()
                 new_path: List[position.Position] = list()
                 for pos in path:
                     if pos in observed_positions:
@@ -208,21 +210,29 @@ class InstructionExample:
                 path = new_path
 
             # The weight is one over the path length, rather than the number of unique locations.
-            weight_per_hex: float = 1. / len(path)
+            # The weight is zero if the path is empty (e.g., if the agent is off the path during inference).
+            if len(path) == 0:
+                weight_per_hex = 0.
+            else:
+                weight_per_hex: float = 1. / len(path)
+
             for location in path:
                 # Add the weight rather than setting it.
-                distribution[0][location.x][location.y] += weight_per_hex
+                distribution[location.x][location.y] += weight_per_hex
         else:
             correct_trajectory: List[position.Position] = self.get_visited_positions()
 
             if not full_observability:
-                observed_positions = self.get_partial_observations()[action_index].observed_positions()
+                # Limit by positions visible _right now_. The distribution won't include hexes that aren't currently
+                # visible.
+                if not observed_positions:
+                    observed_positions = self.get_partial_observations()[action_index].currently_observed_positions()
                 correct_trajectory = list(set(correct_trajectory) & observed_positions)
 
             weight_per_hex: float = 1. / len(correct_trajectory)
 
             for location in correct_trajectory:
-                distribution[0][location.x][location.y] = weight_per_hex
+                distribution[location.x][location.y] = weight_per_hex
 
         return distribution
 

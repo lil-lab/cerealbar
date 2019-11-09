@@ -354,7 +354,7 @@ class StateRepresentation:
             mask: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
 
             # Set the mask to 1 for all locations that have been observed (OK to use static state information)
-            for pos in example.get_partial_observations()[action_index].observed_positions():
+            for pos in example.get_partial_observations()[action_index].lifetime_observed_positions():
                 mask[0][pos.x][pos.y] = 1.
 
             state_masks.append(mask)

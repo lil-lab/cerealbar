@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 from typing import List, Tuple, TYPE_CHECKING
+
+import numpy as np
 import torch
+
 from agent.environment import agent_actions
 from agent.model.modules import word_embedder
 
 if TYPE_CHECKING:
     from agent.data import instruction_example
+    from agent.data import partial_observation
     from agent.environment import position
     from agent.environment import rotation
     from agent.environment import state_delta
@@ -55,59 +59,148 @@ def batch_action_sequences(examples: List[instruction_example.InstructionExample
     return action_index_tensor, action_lengths_tensor
 
 
+def get_partial_observability_distributions(example: instruction_example.InstructionExample,
+                                            current_observation: partial_observation.PartialObservation,
+                                            weight_trajectory_by_time,
+                                            environment_width, environment_depth):
+    timestep_distribution = torch.from_numpy(example.get_correct_trajectory_distribution(
+        weight_trajectory_by_time,
+        full_observability, i)).float()
+
+    # Find the target cards visible to the agent
+    card_beliefs = example.get_partial_observations()[i].get_card_beliefs()
+    target_cards = example.get_touched_cards()
+
+    for believed_card in card_beliefs:
+        card_position = believed_card.get_position()
+        # Add probability of 1 for believed target cards
+        if believed_card in target_cards:
+            example_goal_probabilities[i][card_position.x][card_position.y] = 1.
+        # And avoid probabiltiy of 1 for believed non-target cards (except the initial card if the agent
+        # is on it)
+        elif card_position != example.get_initial_state().follower.get_position():
+            example_avoid_probabilities[i][card_position.x][card_position.y] = 1.
+
+    state_mask = np.zeros((environment_width, environment_depth))
+    for viewed_position in example.get_partial_observations()[i].lifetime_observed_positions():
+        state_mask[viewed_position.x][viewed_position.y] = 1.
+
+    # Append a masked
+    example_obstacle_probabilities.append(torch.from_numpy(full_obstacle_probability * state_mask))
+
+
 def batch_map_distributions(examples: List[instruction_example.InstructionExample],
                             environment_width: int,
                             environment_depth: int,
-                            weight_trajectory_by_time: bool) -> Tuple[torch.Tensor,
-                                                                      torch.Tensor,
-                                                                      torch.Tensor,
-                                                                      torch.Tensor,
-                                                                      torch.Tensor]:
+                            weight_trajectory_by_time: bool,
+                            full_observability: bool = True,
+                            max_action_sequence_length: int = 0) -> Tuple[torch.Tensor,
+                                                                          torch.Tensor,
+                                                                          torch.Tensor,
+                                                                          torch.Tensor,
+                                                                          torch.Tensor]:
     trajectory_distributions: List[torch.Tensor] = []
     goal_probabilities: List[torch.Tensor] = []
     goal_masks: List[torch.Tensor] = []
     obstacle_probabilities: List[torch.Tensor] = []
     avoid_probabilities: List[torch.Tensor] = []
 
-    # TODO: Partial observability
+    if full_observability:
+        for example in examples:
+            # Each distribution is N x N
+            trajectory_distribution: torch.Tensor = torch.from_numpy(
+                example.get_correct_trajectory_distribution(weight_by_time=weight_trajectory_by_time)).float()
 
-    for example in examples:
-        correct_distribution = example.get_correct_trajectory_distribution(weight_by_time=weight_trajectory_by_time)
+            avoid_probability = torch.zeros(environment_width, environment_depth).float()
+            goal_probability = torch.zeros(environment_width, environment_depth).float()
 
-        trajectory_distribution: torch.Tensor = torch.from_numpy(correct_distribution).float()
+            for pos, score in example.get_card_scores().items():
+                goal_probability[pos.x][pos.y] = score
 
-        avoid_probability = torch.zeros(environment_width, environment_depth).float()
-        goal_probability = torch.zeros(environment_width, environment_depth).float()
+            # Doesn't count the card the agent was currently on.
+            cards_to_reach = [card.get_position() for card in example.get_touched_cards(include_start_position=True)]
+            for card in example.get_initial_cards():
+                if card.get_position() not in cards_to_reach:
+                    avoid_probability[card.get_position().x][card.get_position().y] = 1.
 
-        for pos, score in example.get_card_scores().items():
-            goal_probability[pos.x][pos.y] = score
+            trajectory_distributions.append(trajectory_distribution)
+            goal_probabilities.append(goal_probability)
+            avoid_probabilities.append(avoid_probability)
 
-        # Doesn't count the card the agent was currently on.
-        cards_to_reach = [card.get_position() for card in example.get_touched_cards(include_start_position=True)]
-        for card in example.get_initial_cards():
-            if card.get_position() not in cards_to_reach:
-                avoid_probability[card.get_position().x][card.get_position().y] = 1.
+            this_goal_mask = torch.zeros(goal_probability.size())
+            for card in example.get_initial_cards():
+                this_goal_mask[card.get_position().x][card.get_position().y] = 1.
+            goal_masks.append(this_goal_mask)
 
-        trajectory_distributions.append(trajectory_distribution)
-        goal_probabilities.append(goal_probability)
-        avoid_probabilities.append(avoid_probability)
+            obstacle_probability = torch.zeros(environment_width, environment_depth).float()
+            for pos in sorted(example.get_obstacle_positions()):
+                assert pos not in example.get_visited_positions()
+                obstacle_probability[pos.x][pos.y] = 1.
+            obstacle_probabilities.append(obstacle_probability)
 
-        this_goal_mask = torch.zeros(goal_probability.size())
-        for card in example.get_initial_cards():
-            this_goal_mask[card.get_position().x][card.get_position().y] = 1.
-        goal_masks.append(this_goal_mask)
+        return (torch.stack(tuple(trajectory_distributions)).unsqueeze(1),
+                torch.stack(tuple(goal_probabilities)),
+                torch.stack(tuple(obstacle_probabilities)).unsqueeze(1),
+                torch.stack(tuple(avoid_probabilities)).unsqueeze(1),
+                torch.stack(tuple(goal_masks)).unsqueeze(1))
+    else:
+        for example in examples:
+            # Each distribution is max_action_sequence_length x N x N
+            example_trajectory_distributions: List[torch.Tensor] = list()
 
-        obstacle_probability = torch.zeros(environment_width, environment_depth).float()
-        for pos in sorted(example.get_obstacle_positions()):
-            assert pos not in example.get_visited_positions()
-            obstacle_probability[pos.x][pos.y] = 1.
-        obstacle_probabilities.append(obstacle_probability)
+            example_goal_probabilities = torch.zeros(max_action_sequence_length, environment_width, environment_depth)
+            example_avoid_probabilities = torch.zeros(max_action_sequence_length, environment_width, environment_depth)
 
-    return (torch.stack(tuple(trajectory_distributions)),
-            torch.stack(tuple(goal_probabilities)).unsqueeze(1),
-            torch.stack(tuple(obstacle_probabilities)).unsqueeze(1),
-            torch.stack(tuple(avoid_probabilities)).unsqueeze(1),
-            torch.stack(tuple(goal_masks)).unsqueeze(1))
+            full_obstacle_probability = np.zeros((environment_width, environment_depth))
+            for pos in sorted(example.get_obstacle_positions()):
+                assert pos not in example.get_visited_positions()
+                full_obstacle_probability[pos.x][pos.y] = 1.
+
+            example_obstacle_probabilities: List[torch.Tensor] = list()
+
+            for i in range(max_action_sequence_length):
+                state_mask = np.zeros((environment_width, environment_depth))
+                if i < len(example.get_state_deltas()):
+                    timestep_distribution = torch.from_numpy(example.get_correct_trajectory_distribution(
+                        weight_trajectory_by_time,
+                        full_observability, i)).float()
+
+                    # Find the target cards visible to the agent
+                    card_beliefs = example.get_partial_observations()[i].get_card_beliefs()
+                    target_cards = example.get_touched_cards()
+
+                    for believed_card in card_beliefs:
+                        card_position = believed_card.get_position()
+                        # Add probability of 1 for believed target cards
+                        if believed_card in target_cards:
+                            example_goal_probabilities[i][card_position.x][card_position.y] = 1.
+                        # And avoid probabiltiy of 1 for believed non-target cards (except the initial card if the agent
+                        # is on it)
+                        elif card_position != example.get_initial_state().follower.get_position():
+                            example_avoid_probabilities[i][card_position.x][card_position.y] = 1.
+
+                    for viewed_position in example.get_partial_observations()[i].lifetime_observed_positions():
+                        state_mask[viewed_position.x][viewed_position.y] = 1.
+
+                    # Append a masked
+                    example_obstacle_probabilities.append(torch.from_numpy(full_obstacle_probability * state_mask))
+                else:
+                    example_obstacle_probabilities.append(torch.from_numpy(full_obstacle_probability * state_mask))
+                    timestep_distribution = torch.zeros(environment_width, environment_depth).float()
+
+                example_trajectory_distributions.append(timestep_distribution.unsqueeze(0))
+
+            trajectory_distributions.append(torch.stack(tuple(example_trajectory_distributions)))
+            goal_probabilities.append(example_goal_probabilities)
+            avoid_probabilities.append(example_avoid_probabilities)
+            obstacle_probabilities.append(torch.stack(tuple(example_obstacle_probabilities)))
+
+            # TODO: Goal masks (only relevant for end-to-end training)
+        return (torch.stack(tuple(trajectory_distributions)).squeeze().float(),
+                torch.stack(tuple(goal_probabilities)).float(),
+                torch.stack(tuple(obstacle_probabilities)).float(),
+                torch.stack(tuple(avoid_probabilities)).float(),
+                None)
 
 
 def batch_agent_configurations(examples: List[instruction_example.InstructionExample],

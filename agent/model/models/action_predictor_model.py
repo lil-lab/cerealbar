@@ -6,13 +6,15 @@ Clases:
 """
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING
 
-import copy
+import numpy as np
 import torch
 from torch import nn
 
 from agent import util
+from agent.data import partial_observation
 from agent.environment import agent_actions
 from agent.environment import util as environment_util
 from agent.learning import auxiliary
@@ -122,47 +124,77 @@ class ActionPredictorModel(nn.Module):
                                              avoid_probabilities: torch.Tensor,
                                              positions: torch.Tensor,
                                              rotations: torch.Tensor) -> torch.Tensor:
-        if goal_probabilities is not None:
-            batch_size, _, raw_height, raw_width = goal_probabilities.size()
+        if self._args.get_state_rep_args().full_observability():
+            if goal_probabilities is not None:
+                batch_size, _, raw_height, raw_width = goal_probabilities.size()
+            else:
+                batch_size, _, raw_height, raw_width = trajectory_distributions.size()
+
+            num_actions: int = rotations.size(1)
+
+            # [1] Expand the trajectories
+            expanded_trajectory_distribution = None
+            if self._args.get_decoder_args().use_trajectory_distribution():
+                # Do the same thing as above.
+                expanded_trajectory_distribution = \
+                    trajectory_distributions.unsqueeze(4).expand(
+                        (batch_size, 1, raw_height, raw_width, num_actions)).permute(
+                        0, 4, 1, 2, 3).contiguous().view(batch_size * num_actions, 1, raw_height, raw_width)
+
+            # Rotate to the current positions.
+            map_to_embed = None
+            if expanded_trajectory_distribution is not None:
+                map_to_embed: torch.Tensor = expanded_trajectory_distribution
+            if self._args.get_decoder_args().use_goal_probabilities():
+                if map_to_embed is not None:
+                    map_to_embed = \
+                        torch.cat(
+                            (batch_util.expand_flat_map_distribution(goal_probabilities, num_actions), map_to_embed),
+                            dim=1)
+                else:
+                    map_to_embed = batch_util.expand_flat_map_distribution(goal_probabilities, num_actions)
+            if self._args.get_decoder_args().use_obstacle_probabilities():
+                if map_to_embed is not None:
+                    map_to_embed = \
+                        torch.cat((batch_util.expand_flat_map_distribution(obstacle_probabilities, num_actions),
+                                   map_to_embed), dim=1)
+                else:
+                    map_to_embed = batch_util.expand_flat_map_distribution(obstacle_probabilities, num_actions)
+            if self._args.get_decoder_args().use_avoid_probabilities():
+                if map_to_embed is not None:
+                    map_to_embed = \
+                        torch.cat((batch_util.expand_flat_map_distribution(avoid_probabilities, num_actions),
+                                   map_to_embed), dim=1)
+                else:
+                    map_to_embed = batch_util.expand_flat_map_distribution(avoid_probabilities, num_actions),
         else:
-            batch_size, _, raw_height, raw_width = trajectory_distributions.size()
-
-        num_actions: int = rotations.size(1)
-
-        # [1] Expand the trajectories
-        expanded_trajectory_distribution = None
-        if self._args.get_decoder_args().use_trajectory_distribution():
-            # Do the same thing as above.
-            expanded_trajectory_distribution = \
-                trajectory_distributions.unsqueeze(4).expand(
-                    (batch_size, 1, raw_height, raw_width, num_actions)).permute(
-                    0, 4, 1, 2, 3).contiguous().view(batch_size * num_actions, 1, raw_height, raw_width)
-
-        # Rotate to the current positions.
-        map_to_embed = None
-        if expanded_trajectory_distribution is not None:
-            map_to_embed: torch.Tensor = expanded_trajectory_distribution
-        if self._args.get_decoder_args().use_goal_probabilities():
-            if map_to_embed is not None:
-                map_to_embed = \
-                    torch.cat((batch_util.expand_flat_map_distribution(goal_probabilities, num_actions), map_to_embed),
-                              dim=1)
+            if goal_probabilities is not None:
+                batch_size, num_actions, raw_height, raw_width = goal_probabilities.size()
             else:
-                map_to_embed = batch_util.expand_flat_map_distribution(goal_probabilities, num_actions)
-        if self._args.get_decoder_args().use_obstacle_probabilities():
-            if map_to_embed is not None:
-                map_to_embed = \
-                    torch.cat((batch_util.expand_flat_map_distribution(obstacle_probabilities, num_actions),
-                               map_to_embed), dim=1)
-            else:
-                map_to_embed = batch_util.expand_flat_map_distribution(obstacle_probabilities, num_actions)
-        if self._args.get_decoder_args().use_avoid_probabilities():
-            if map_to_embed is not None:
-                map_to_embed = \
-                    torch.cat((batch_util.expand_flat_map_distribution(avoid_probabilities, num_actions),
-                               map_to_embed), dim=1)
-            else:
-                map_to_embed = batch_util.expand_flat_map_distribution(avoid_probabilities, num_actions),
+                batch_size, num_actions, raw_height, raw_width = trajectory_distributions.size()
+
+            # Reshape to be the expanded size.
+            def reshape_to_flat(x):
+                return x.view((batch_size * num_actions, 1, raw_height, raw_width))
+
+            map_to_embed = None
+            if trajectory_distributions is not None:
+                map_to_embed = reshape_to_flat(trajectory_distributions)
+            if goal_probabilities is not None:
+                if map_to_embed is not None:
+                    map_to_embed = torch.cat((reshape_to_flat(goal_probabilities), map_to_embed), dim=1)
+                else:
+                    map_to_embed = reshape_to_flat(goal_probabilities)
+            if obstacle_probabilities is not None:
+                if map_to_embed is not None:
+                    map_to_embed = torch.cat((reshape_to_flat(obstacle_probabilities), map_to_embed), dim=1)
+                else:
+                    map_to_embed = reshape_to_flat(obstacle_probabilities)
+            if avoid_probabilities is not None:
+                if map_to_embed is not None:
+                    map_to_embed = torch.cat((reshape_to_flat(avoid_probabilities), map_to_embed), dim=1)
+                else:
+                    map_to_embed = reshape_to_flat(avoid_probabilities)
 
         return self._map_distribution_embedder(map_to_embed,
                                                positions.view(batch_size * num_actions, 2),
@@ -219,11 +251,39 @@ class ActionPredictorModel(nn.Module):
                             batch_size,
                             self._args.get_decoder_args().get_hidden_size()).to(util.DEVICE))
 
-    def _predict_action_sequence(
+    def _combine_distributions(self,
+                               goal_probabilities: torch.Tensor,
+                               trajectory_distribution: torch.Tensor,
+                               obstacle_probabilities: torch.Tensor,
+                               avoid_probabilities: torch.Tensor) -> torch.Tensor:
+        # Assumes there is no batch size dimension.
+        timestep_map = None
+        if self._args.get_decoder_args().use_trajectory_distribution():
+            timestep_map: torch.Tensor = trajectory_distribution.unsqueeze(0).unsqueeze(0)
+
+        if self._args.get_decoder_args().use_goal_probabilities():
+            if timestep_map is not None:
+                timestep_map = torch.cat((goal_probabilities.unsqueeze(0).unsqueeze(0), timestep_map), dim=1)
+            else:
+                timestep_map = goal_probabilities.unsqueeze(0).unsqueeze(0)
+        if self._args.get_decoder_args().use_obstacle_probabilities():
+            if timestep_map is not None:
+                timestep_map = torch.cat((obstacle_probabilities.unsqueeze(0).unsqueeze(0), timestep_map), dim=1)
+            else:
+                timestep_map = obstacle_probabilities.unsqueeze(0).unsqueeze(0)
+        if self._args.get_decoder_args().use_avoid_probabilities():
+            if timestep_map is not None:
+                timestep_map = torch.cat((avoid_probabilities.unsqueeze(0).unsqueeze(0), timestep_map), dim=1)
+            else:
+                timestep_map = avoid_probabilities.unsqueeze(0).unsqueeze(0)
+        return timestep_map
+
+    def _predict_actions_full_observability(
             self, goal_probabilities: torch.Tensor, trajectory_distribution: torch.Tensor,
             obstacle_probabilities: torch.Tensor, avoid_probabilities: torch.Tensor, game_server: game.Game,
             evaluation_arguments: evaluation_args.EvaluationArgs) -> Tuple[List[agent_actions.AgentAction],
                                                                            List[state_delta.StateDelta]]:
+
         action_sequence: List[agent_actions.AgentAction] = [agent_actions.AgentAction.START]
         stopped: bool = False
         timestep: int = 0
@@ -235,28 +295,12 @@ class ActionPredictorModel(nn.Module):
         resulting_game_state = copy.deepcopy(game_server.get_game_info())
         visited_states: List[state_delta.StateDelta] = [resulting_game_state]
 
+        # [1] Combine the map distributions only once.
+        timestep_map = self._combine_distributions(goal_probabilities, trajectory_distribution,
+                                                   obstacle_probabilities, avoid_probabilities)
+
         while (timestep < evaluation_arguments.get_maximum_generation_length() or
                evaluation_arguments.get_maximum_generation_length() < 0) and not stopped:
-            # [1] Expand the trajectories
-            timestep_map = None
-            if self._args.get_decoder_args().use_trajectory_distribution():
-                timestep_map: torch.Tensor = trajectory_distribution
-
-            if self._args.get_decoder_args().use_goal_probabilities():
-                if timestep_map is not None:
-                    timestep_map = torch.cat((goal_probabilities.unsqueeze(0), timestep_map), dim=1)
-                else:
-                    timestep_map = goal_probabilities.unsqueeze(0)
-            if self._args.get_decoder_args().use_obstacle_probabilities():
-                if timestep_map is not None:
-                    timestep_map = torch.cat((obstacle_probabilities, timestep_map), dim=1)
-                else:
-                    timestep_map = obstacle_probabilities
-            if self._args.get_decoder_args().use_avoid_probabilities():
-                if timestep_map is not None:
-                    timestep_map = torch.cat((avoid_probabilities, timestep_map), dim=1)
-                else:
-                    timestep_map = avoid_probabilities
 
             predicted_action, rnn_state, resulting_game_state = \
                 self._predict_one_action(action_sequence,
@@ -264,6 +308,79 @@ class ActionPredictorModel(nn.Module):
                                          timestep_map.to(util.DEVICE),
                                          rnn_state)
             visited_states.append(resulting_game_state)
+
+            action_sequence.append(predicted_action)
+            if predicted_action == agent_actions.AgentAction.STOP or not game_server.valid_state():
+                stopped = True
+
+            timestep += 1
+
+        return action_sequence[1:], visited_states
+
+    def _predict_actions_partial_observability(
+            self, example: instruction_example.InstructionExample, game_server: game.Game,
+            evaluation_arguments: evaluation_args.EvaluationArgs) -> Tuple[List[agent_actions.AgentAction],
+                                                                           List[state_delta.StateDelta]]:
+        if self._end_to_end:
+            raise NotImplementedError('End-to-end not implemented for partial observability yet.')
+
+        action_sequence: List[agent_actions.AgentAction] = [agent_actions.AgentAction.START]
+        stopped: bool = False
+        timestep: int = 0
+
+        rnn_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        if self._args.get_decoder_args().use_recurrence():
+            rnn_state = self._initialize_rnn(1)
+
+        resulting_game_state = copy.deepcopy(game_server.get_game_info())
+        visited_states: List[state_delta.StateDelta] = [resulting_game_state]
+        current_observation = example.get_partial_observations()[0]
+
+        while (timestep < evaluation_arguments.get_maximum_generation_length() or
+               evaluation_arguments.get_maximum_generation_length() < 0) and not stopped:
+
+            # Compute the updated timestep map given the most recent partial observation.
+
+            # TODO: Consider that when training with gold distribution inputs, if the agent gets off the path,
+            # the old path distribution isn't useful whereas when training end-to-end it should be updated wrt. the
+            # agent's current path distribution.
+            trajectory_distribution = torch.tensor(example.get_correct_trajectory_distribution(
+                self._args.get_decoder_args().weight_trajectory_by_time(),
+                full_observability=False,
+                observed_positions=current_observation.currently_observed_positions())).float()
+
+            goal_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
+            avoid_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
+            target_cards = example.get_touched_cards()
+            for believed_card in current_observation.get_card_beliefs():
+                card_position = believed_card.get_position()
+                if believed_card in target_cards:
+                    goal_probabilities[card_position.x][card_position.y] = 1.
+                elif card_position != example.get_initial_state().follower.get_position():
+                    avoid_probabilities[card_position.x][card_position.y] = 1.
+
+            # Obstacle probabilities
+            obstacle_probabilities = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+            for pos in sorted(example.get_obstacle_positions()):
+                assert pos not in example.get_visited_positions()
+                obstacle_probabilities[pos.x][pos.y] = 1.
+            state_mask = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+            for viewed_position in current_observation.lifetime_observed_positions():
+                state_mask[viewed_position.x][viewed_position.y] = 1.
+            obstacle_probabilities = obstacle_probabilities * state_mask
+
+            timestep_map = self._combine_distributions(goal_probabilities, trajectory_distribution,
+                                                       torch.tensor(obstacle_probabilities).float(),
+                                                       avoid_probabilities)
+
+            predicted_action, rnn_state, resulting_game_state = \
+                self._predict_one_action(action_sequence,
+                                         game_server,
+                                         timestep_map.to(util.DEVICE),
+                                         rnn_state)
+            visited_states.append(resulting_game_state)
+
+            current_observation = partial_observation.update_observation(current_observation, resulting_game_state)
 
             action_sequence.append(predicted_action)
             if predicted_action == agent_actions.AgentAction.STOP or not game_server.valid_state():
@@ -307,20 +424,19 @@ class ActionPredictorModel(nn.Module):
             action_index_tensor, action_lengths_tensor = batch_util.batch_action_sequences(examples,
                                                                                            self._action_embedder)
 
-        # Currently, the distributions should just be one per example.
-        if not self._args.get_state_rep_args().full_observability():
-            raise ValueError('Partial observability is not supported.')
-
         # [1] Get the gold distributions
+        max_action_sequence_length = max([len(example.get_state_deltas()) for example in examples]) + 1
+
         batched_map_components: List[torch.Tensor] = \
             batch_util.batch_map_distributions(examples,
                                                environment_util.ENVIRONMENT_WIDTH,
                                                environment_util.ENVIRONMENT_DEPTH,
-                                               self._args.get_decoder_args().weight_trajectory_by_time())
+                                               self._args.get_decoder_args().weight_trajectory_by_time(),
+                                               self._args.get_state_rep_args().full_observability(),
+                                               max_action_sequence_length)
 
         # [2] Get the rotations
-        positions, rotations = batch_util.batch_agent_configurations(
-            examples, max([len(example.get_state_deltas()) for example in examples]) + 1)
+        positions, rotations = batch_util.batch_agent_configurations(examples, max_action_sequence_length)
 
         tensors: List[torch.Tensor] = list(batched_map_components[:-1]) + [positions,
                                                                            rotations,
@@ -418,7 +534,6 @@ class ActionPredictorModel(nn.Module):
                         evaluation_arguments: evaluation_args.EvaluationArgs,
                         goal_probabilities: torch.Tensor = None,
                         trajectory_distribution: torch.Tensor = None,
-                        time_vector: torch.Tensor = None,
                         obstacle_probabilities: torch.Tensor = None,
                         avoid_probabilities: torch.Tensor = None) -> Tuple[List[agent_actions.AgentAction],
                                                                            Dict[auxiliary.Auxiliary, torch.Tensor],
@@ -431,68 +546,82 @@ class ActionPredictorModel(nn.Module):
             evaluation_arguments: EvalArgs. The arguments for evaluation.
             goal_probabilities: torch.Tensor. An optional distribution over cards.
             trajectory_distribution: torch.Tensor. An optional distribution over trajectories.
-            time_vector: torch.Tensor. An optional score for each timestep.
             obstacle_probabilities: torch.Tensor. An optional distribution over impassable locations.
             avoid_probabilities: torch.Tensor. An optional distribution over locations to avoid.
         """
-        # Not gold forcing.
+
+        # TODO: This is assuming starting in the correct start state for this instruction
+
         if evaluation_arguments is None:
             raise ValueError('Evaluation arguments must be passed if providing a game server.')
 
-        # Get the distribution
         auxiliary_predictions: Dict[auxiliary.Auxiliary, Any] = dict()
-        if trajectory_distribution is None:
+
+        if self._args.get_state_rep_args().full_observability():
+            # If full observability, first compute the distributions, then use them to compute the action sequence.
+            if trajectory_distribution is None:
+                if self._end_to_end:
+                    raise NotImplementedError
+                    # Outputs of this should be masked if necessary.
+                    goal_probabilities, auxiliary_predictions = self._hex_predictor.get_predictions(example)
+
+                    avoid_probabilities = None
+                    if auxiliary.Auxiliary.AVOID_LOCS in auxiliary_predictions:
+                        # This has already gone through sigmoid (and mask if masked).
+                        avoid_probabilities = auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS].unsqueeze(1)
+
+                    # These need to be normalized -- hex_predictor does not return normalized trajectories.
+                    trajectory_distribution = None
+                    if auxiliary.Auxiliary.TRAJECTORY in auxiliary_predictions:
+                        trajectory_distribution, time_vector = \
+                            normalize_trajectory_distribution(
+                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0],
+                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1].unsqueeze(0)
+                                if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else None)
+
+                    # These are already masked and put through a sigmoid.
+                    if goal_probabilities is not None:
+                        auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS] = goal_probabilities.squeeze()
+
+                    obstacle_probabilities = None
+                    if self._args.get_decoder_args().use_impassable_locations():
+                        # This is already put through a sigmoid.
+                        obstacle_probabilities = auxiliary_predictions[auxiliary.Auxiliary.IMPASSABLE_LOCS].unsqueeze(1)
+                else:
+                    (trajectory_distribution,
+                     goal_probabilities,
+                     obstacle_probabilities,
+                     avoid_probabilities,
+                     _) = batch_util.batch_map_distributions([example],
+                                                             environment_util.ENVIRONMENT_WIDTH,
+                                                             environment_util.ENVIRONMENT_DEPTH,
+                                                             self._args.get_decoder_args().weight_trajectory_by_time())
+
+            if evaluation_arguments.visualize_auxiliaries():
+                if not isinstance(game_server, unity_game.UnityGame):
+                    raise ValueError('Can only visualize auxiliaries with a Unity game.')
+
+                hex_inference.visualize_probabilities(goal_probabilities.numpy()[0],
+                                                      trajectory_distribution.numpy()[0][0],
+                                                      obstacle_probabilities.numpy()[0][0],
+                                                      avoid_probabilities.numpy()[0][0], game_server)
+
+            action_sequence, visited_states = self._predict_actions_full_observability(
+                goal_probabilities.squeeze(),
+                trajectory_distribution.squeeze(),
+                obstacle_probabilities.squeeze(),
+                avoid_probabilities.squeeze(),
+                game_server,
+                evaluation_arguments)
+
+        else:
+            # If partial observability, need to recompute distributions at each step.
+            if evaluation_arguments.visualize_auxiliaries():
+                raise NotImplementedError('Need to implement visualization for partial observability.')
             if self._end_to_end:
-                raise NotImplementedError
-                # Outputs of this should be masked if necessary.
-                goal_probabilities, auxiliary_predictions = self._hex_predictor.get_predictions(example)
+                raise NotImplementedError('Need to implement end-to-end partial observability.')
 
-                avoid_probabilities = None
-                if auxiliary.Auxiliary.AVOID_LOCS in auxiliary_predictions:
-                    # This has already gone through sigmoid (and mask if masked).
-                    avoid_probabilities = auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS].unsqueeze(1)
-
-                # These need to be normalized -- hex_predictor does not return normalized trajectories.
-                trajectory_distribution = None
-                if auxiliary.Auxiliary.TRAJECTORY in auxiliary_predictions:
-                    trajectory_distribution, time_vector = \
-                        normalize_trajectory_distribution(
-                            auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0],
-                            auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1].unsqueeze(0)
-                            if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else None)
-
-                # These are already masked and put through a sigmoid.
-                if goal_probabilities is not None:
-                    auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS] = goal_probabilities.squeeze()
-
-                obstacle_probabilities = None
-                if self._args.get_decoder_args().use_impassable_locations():
-                    # This is already put through a sigmoid.
-                    obstacle_probabilities = auxiliary_predictions[auxiliary.Auxiliary.IMPASSABLE_LOCS].unsqueeze(1)
-            else:
-                (trajectory_distribution,
-                 goal_probabilities,
-                 obstacle_probabilities,
-                 avoid_probabilities,
-                 _) = batch_util.batch_map_distributions([example],
-                                                         environment_util.ENVIRONMENT_WIDTH,
-                                                         environment_util.ENVIRONMENT_DEPTH,
-                                                         self._args.get_decoder_args().weight_trajectory_by_time())
-                goal_probabilities = goal_probabilities[0]
-
-        if evaluation_arguments.visualize_auxiliaries():
-            if not isinstance(game_server, unity_game.UnityGame):
-                raise ValueError('Can only visualize auxiliaries with a Unity game.')
-
-            hex_inference.visualize_probabilities(goal_probabilities.numpy()[0], trajectory_distribution.numpy()[0][0],
-                                                  obstacle_probabilities.numpy()[0][0],
-                                                  avoid_probabilities.numpy()[0][0], game_server)
-
-        action_sequence, visited_states = self._predict_action_sequence(goal_probabilities,
-                                                                        trajectory_distribution,
-                                                                        obstacle_probabilities,
-                                                                        avoid_probabilities,
-                                                                        game_server,
-                                                                        evaluation_arguments)
+            action_sequence, visited_states = self._predict_actions_partial_observability(example, game_server,
+                                                                                          evaluation_arguments)
 
         return action_sequence, auxiliary_predictions, visited_states

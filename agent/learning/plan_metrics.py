@@ -193,9 +193,9 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
             if not full_observability:
                 # Limit the gold and predicted positions only to the visible positions.
                 gold_positions = sorted(list(set(gold_positions)
-                                             & example.get_partial_observations()[action_index].observed_positions()))
+                                             & example.get_partial_observations()[action_index].lifetime_observed_positions()))
                 pred_positions = sorted(list(set(pred_positions)
-                                             & example.get_partial_observations()[action_index].observed_positions()))
+                                             & example.get_partial_observations()[action_index].lifetime_observed_positions()))
 
             acc, prec, recall = learning_util.evaluate_set_precision_recall(pred_positions, gold_positions)
             metric_results[str(auxiliary.Auxiliary.OBSTACLES) + ' accuracy'].append(acc)

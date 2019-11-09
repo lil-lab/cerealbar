@@ -11,7 +11,7 @@ from agent.environment import state_delta
 
 # To start, load the dictionary mapping positions/rotations to visible positions.
 with open('agent/preprocessed/position_visibility.pkl', 'rb') as infile:
-    VISIBILITY_MAP: Dict[Tuple[position.Position, rotation.Rotation], position.Position] = pickle.load(infile)
+    VISIBILITY_MAP: Dict[Tuple[position.Position, rotation.Rotation], List[position.Position]] = pickle.load(infile)
 
 
 class PartialObservation:
@@ -42,12 +42,16 @@ class PartialObservation:
     def get_card_beliefs(self) -> List[card.Card]:
         return self._observed_state_delta.cards
 
-    def observed_positions(self) -> Set[position.Position]:
+    def lifetime_observed_positions(self) -> Set[position.Position]:
         """Returns all positions that the follower has seen throughout the entire game."""
         return self._observed_positions
 
     def get_observed_state_delta(self) -> state_delta.StateDelta:
         return self._observed_state_delta
+
+    def currently_observed_positions(self) -> Set[position.Position]:
+        return set(VISIBILITY_MAP[self._observed_state_delta.follower.get_position(),
+                                  self._observed_state_delta.follower.get_rotation()])
 
 
 def create_first_partial_observation(complete_state_delta: state_delta.StateDelta) -> PartialObservation:
@@ -91,7 +95,7 @@ def update_observation(current_observation: PartialObservation,
                                                                      new_follower.get_rotation())]
 
     # These positions are all the ones that have been previously observed plus the new observed ones.
-    all_observed_positions = set(now_visible_positions) | current_observation.observed_positions()
+    all_observed_positions = set(now_visible_positions) | current_observation.lifetime_observed_positions()
 
     # Leader: if it's now in view, update it, otherwise it will stay where it was.
     current_leader: agent.Agent = complete_state_delta.leader
