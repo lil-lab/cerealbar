@@ -14,6 +14,7 @@ class EvaluationLogger:
     def log(self, message: str) -> None:
         if self._filepointer:
             self._filepointer.write(message + '\n')
+            self._filepointer.flush()
 
     def active(self) -> bool:
         return bool(self._filepointer)

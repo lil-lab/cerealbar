@@ -86,13 +86,13 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
     logger: evaluation_logger.EvaluationLogger = evaluation_logger.EvaluationLogger(logging_filename)
 
     full_observability: bool = model.get_arguments().get_state_rep_args().full_observability()
-    eval_ids = instruction_example.get_example_action_index_pairs(
+    evaluation_ids = instruction_example.get_example_action_index_pairs(
         examples, full_observability,
         model.get_arguments().get_state_rep_args().observability_refresh_rate())
 
     auxiliary_predictions_dict = dict()
-    with util.get_progressbar('evaluating...', len(eval_ids)) as pbar:
-        for i, (example_id, action_idx) in enumerate(eval_ids):
+    with util.get_progressbar('evaluating...', len(evaluation_ids)) as pbar:
+        for i, (example_id, action_idx) in enumerate(evaluation_ids):
             pbar.update(i)
             auxiliaries = model.get_predictions(examples[example_id], action_idx)
             auxiliary_predictions_dict[(example_id, action_idx)] = auxiliaries
@@ -125,7 +125,7 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
         for i in range(model.get_arguments().get_state_encoder_args().get_encoder_depth()):
             metric_results[str(auxiliary.Auxiliary.IMPLICIT) + ' accuracy layer ' + str(i)] = list()
 
-    for example_id, action_index in eval_ids:
+    for example_id, action_index in evaluation_ids:
         example = examples[example_id]
 
         logger.log('***** Example #' + example_id + ' *****')

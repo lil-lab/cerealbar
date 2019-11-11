@@ -381,7 +381,7 @@ def construct_examples(games: Dict[str, cereal_bar_game.CerealBarGame],
 def get_example_action_index_pairs(examples: Dict[str, InstructionExample],
                                    full_observability: bool,
                                    observability_refresh_rate: int) -> List[Tuple[str, int]]:
-    if full_observability:
+    if not full_observability:
         if observability_refresh_rate > 1:
             raise ValueError('Refreshing after more than one action is not supported.')
         ids = list()

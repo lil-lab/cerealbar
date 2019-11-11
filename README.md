@@ -71,6 +71,8 @@ agent/experiments/`.
 1. Intermediate results (e.g., performance on the validation set) is logged using Crayon on the local machine. You 
 need to download and start the Crayon server. Follow 
 [these instructions from DyNet](https://github.com/clab/dynet/tree/master/examples/tensorboard).
+You may need to comment out lines 24 -- 37 in `crayon.py` in the crayon installation if you want to run multiple 
+experiments at once.
 
 #### Notes
 
