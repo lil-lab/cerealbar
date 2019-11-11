@@ -171,7 +171,7 @@ def load_presaved_data(data_arguments: data_args.DataArgs, split: dataset_split.
     examples_dict: Dict[str, cereal_bar_game.CerealBarGame] = dict()
 
     with util.get_progressbar('loading presaved data ', len([_ for _ in os.listdir(save_dir)])) as pbar:
-        for filename in os.listdir(save_dir):
+        for filename in sorted(list(os.listdir(save_dir))):
             pbar.update(len(examples_dict))
             if filename.endswith('.pkl') and filename != 'args.pkl':
                 if split == dataset_split.DatasetSplit.TRAIN and filename == 'dataset.pkl':

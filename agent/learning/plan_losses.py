@@ -58,7 +58,7 @@ def compute_trajectory_loss(example: Union[instruction_example.InstructionExampl
                                                            full_observability=full_observability,
                                                            action_index=action_index)
     return CrossEntropy2d()(predicted_map_distribution,
-                            torch.tensor(gold_map).float().unsqueeze(0).unsqueeze(0).to(util.DEVICE))
+                            torch.tensor(gold_map).float().unsqueeze(0).unsqueeze(0).unsqueeze(0).to(util.DEVICE))
 
 
 def get_auxiliaries_from_args(args: training_args.TrainingArgs,

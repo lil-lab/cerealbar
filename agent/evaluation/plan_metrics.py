@@ -82,7 +82,6 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
                         examples: Dict[str, instruction_example.InstructionExample],
                         logging_filename: str = '') -> Dict[str, float]:
     """ Evaluates a hex predictor model over a set of examples. """
-    # TODO: if all trajectory, then evaluate for all positions along the path
 
     logger: evaluation_logger.EvaluationLogger = evaluation_logger.EvaluationLogger(logging_filename)
 
@@ -92,7 +91,7 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
         model.get_arguments().get_state_rep_args().observability_refresh_rate())
 
     auxiliary_predictions_dict = dict()
-    with util.get_progressbar('evaluating...', len(examples)) as pbar:
+    with util.get_progressbar('evaluating...', len(eval_ids)) as pbar:
         for i, (example_id, action_idx) in enumerate(eval_ids):
             pbar.update(i)
             auxiliaries = model.get_predictions(examples[example_id], action_idx)
