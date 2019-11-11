@@ -8,6 +8,7 @@ import multiprocessing
 from agent import util
 from agent.config import util as config_util
 from agent.config import program_args
+from agent.evaluation import evaluation
 from agent.simulation import replay
 from agent.learning import training
 
@@ -37,12 +38,12 @@ def main():
         training.train(args)
     elif run_type == program_args.RunType.REPLAY:
         replay.replay(args.get_game_args(), args.get_replay_args())
-    elif run_type == program_args.RunType.EVAL:
+    elif run_type == program_args.RunType.EVALUATE:
         logging.basicConfig(filename=os.path.join(args.get_training_args().get_save_directory(), 'eval.log'),
                             level=logging.DEBUG)
         logging.getLogger().addHandler(logging.StreamHandler())
 
-        evaluate_games(args)
+        evaluation.evaluate_games(args)
 
 
 if __name__ == '__main__':

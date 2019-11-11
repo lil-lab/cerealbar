@@ -194,10 +194,6 @@ class ActionGeneratorArgs(args.Args):
         self._state_internal_size = parsed_args.state_internal_size
         self._crop_size = parsed_args.crop_size
 
-        if not self._end_to_end:
-            if self._pretrained_plan_predictor_filepath or self._pretrained_action_generator_filepath:
-                raise ValueError('Should be end to end when providing pretrained components.')
-
         super(ActionGeneratorArgs, self).interpret_args(parsed_args)
 
     def __str__(self) -> str:

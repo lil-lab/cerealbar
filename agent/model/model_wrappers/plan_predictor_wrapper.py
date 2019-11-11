@@ -16,7 +16,7 @@ from agent.data import instruction_example
 from agent.learning import auxiliary
 from agent.learning import batch_loss
 from agent.learning import plan_losses
-from agent.learning import plan_metrics
+from agent.evaluation import plan_metrics
 from agent.model.model_wrappers import model_wrapper
 from agent.model.models import plan_predictor_model
 

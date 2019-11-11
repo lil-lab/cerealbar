@@ -2,7 +2,6 @@
 import logging
 from typing import List
 
-import numpy as np
 import pycrayon
 
 from agent.config import model_args
@@ -11,8 +10,7 @@ from agent.config import training_args
 from agent.data import dataset_split
 from agent.data import game_dataset
 from agent.data import loading
-from agent.learning import action_generator_metrics
-from agent.learning import plan_metrics
+from agent.evaluation import action_generator_metrics, plan_metrics
 from agent.learning import util
 from agent.model.model_wrappers import action_generator_model_wrapper
 from agent.model.model_wrappers import create_model_wrapper

@@ -13,10 +13,9 @@ from torch import nn
 from agent import util
 from agent.data import dataset_split
 from agent.environment import agent_actions
-from agent.learning import action_generator_metrics
+from agent.evaluation import action_generator_metrics, metric
 from agent.learning import auxiliary
 from agent.learning import batch_loss
-from agent.learning import metric
 from agent.learning import plan_losses
 from agent.model.model_wrappers import model_wrapper
 from agent.model.models import action_predictor_model
@@ -423,7 +422,8 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                 better = True
 
             if better:
-                filename = os.path.join(training_arguments.get_save_directory(), 'model_%r%r.pt' % (num_epochs, suffix))
+                filename = os.path.join(training_arguments.get_save_directory(),
+                                        'model_' + str(num_epochs) + suffix + '.pt')
                 best_filename = filename
                 patience *= training_arguments.get_patience_update_factor()
                 countdown = int(patience)

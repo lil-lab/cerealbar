@@ -10,7 +10,7 @@ import torch
 
 from agent.config import args
 from agent.config import model_args
-from agent.learning import metric
+from agent.evaluation import metric
 
 
 class OptimizerType(Enum):

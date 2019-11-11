@@ -4,7 +4,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from agent import util
-from agent.learning import metric
+from agent.evaluation import metric
 from agent.simulation import python_game
 
 if TYPE_CHECKING:

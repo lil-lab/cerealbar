@@ -19,7 +19,7 @@ from agent.environment import agent_actions
 from agent.environment import util as environment_util
 from agent.learning import auxiliary
 from agent.learning import batch_util
-from agent.learning import plan_metrics
+from agent.evaluation import plan_metrics
 from agent.learning import sampling
 from agent.model.models import plan_predictor_model
 from agent.model.modules import map_distribution_embedder

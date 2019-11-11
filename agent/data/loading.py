@@ -217,3 +217,15 @@ def load_data(split: dataset_split.DatasetSplit, data_arguments: data_args.DataA
         dataset.save(split, PRESAVED_DIRECTORY, save_entire_dataset=split != dataset_split.DatasetSplit.TRAIN)
         logging.info('Saved')
     return dataset
+
+
+def load_vocabulary(save_dir: str) -> List[str]:
+    """ Loads an already-saved vocabulary into a list of strings.
+
+    Input:
+        save_dir: str. The directory where the vocabulary is stored.
+
+    Returns: list of strings representing the ordered vocabulary.
+    """
+    with open(os.path.join(save_dir, 'vocab.tsv')) as infile:
+        return [line.strip().split('\t')[1] for line in infile if line.strip()]
