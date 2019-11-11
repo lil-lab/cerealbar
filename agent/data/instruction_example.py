@@ -229,7 +229,10 @@ class InstructionExample:
                     observed_positions = self.get_partial_observations()[action_index].currently_observed_positions()
                 correct_trajectory = list(set(correct_trajectory) & observed_positions)
 
-            weight_per_hex: float = 1. / len(correct_trajectory)
+            if len(correct_trajectory) == 0:
+                weight_per_hex = 0.
+            else:
+                weight_per_hex: float = 1. / len(correct_trajectory)
 
             for location in correct_trajectory:
                 distribution[location.x][location.y] = weight_per_hex

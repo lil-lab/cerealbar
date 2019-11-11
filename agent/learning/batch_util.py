@@ -182,7 +182,6 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
                     for viewed_position in example.get_partial_observations()[i].lifetime_observed_positions():
                         state_mask[viewed_position.x][viewed_position.y] = 1.
 
-                    # Append a masked
                     example_obstacle_probabilities.append(torch.from_numpy(full_obstacle_probability * state_mask))
                 else:
                     example_obstacle_probabilities.append(torch.from_numpy(full_obstacle_probability * state_mask))

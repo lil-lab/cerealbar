@@ -189,10 +189,6 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
         train_examples: Dict[str, instruction_example.InstructionExample] = dataset.get_examples(
             dataset_split.DatasetSplit.UPDATE)
 
-        # TODO: The second value here is the index in the action sequence that the state is being observed.
-        # for now, it is only training on data for the 0th action: i.e., at the beginning of the instruction.
-        # However, when moving to partial observability, this should include ALL actions in every sequence.
-
         train_ids = instruction_example.get_example_action_index_pairs(
             train_examples, self._args.get_state_rep_args().full_observability(),
             self._args.get_state_rep_args().observability_refresh_rate())
@@ -229,7 +225,7 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
             save_description: str = ''
 
             if validation_goal_accuracy > maximum_accuracy:
-                logging.info('Best accuracy: ' + str(validation_goal_accuracy))
+                logging.info('Best accuracy: ' + '{0:.2f}'.format(100. * validation_goal_accuracy))
                 maximum_accuracy = validation_goal_accuracy
                 save_description += '_bestacc'
 
