@@ -299,6 +299,10 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                    evaluation_arguments: evaluation_args.EvaluationArgs,
                    training_arguments: training_args.TrainingArgs,
                    experiment: crayon.CrayonExperiment) -> str:
+
+        if evaluation_arguments.get_evaluation_results_filename():
+            raise NotImplementedError
+
         train_examples: Dict[str, instruction_example.InstructionExample] = dataset.get_examples(
             dataset_split.DatasetSplit.UPDATE)
         validation_examples: Dict[str, instruction_example.InstructionExample] = dataset.get_examples(

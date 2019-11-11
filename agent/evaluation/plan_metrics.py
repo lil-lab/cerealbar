@@ -6,6 +6,7 @@ import torch
 from agent.data import aggregated_instruction_example
 from agent.data import instruction_example
 from agent.environment import position
+from agent.evaluation import evaluation_logger
 from agent.learning import auxiliary
 from agent.learning import plan_losses
 from agent.learning import util as learning_util
@@ -78,9 +79,12 @@ def add_card_metrics(metric_results: Dict[str, Any],
 
 
 def plan_metric_results(model: model_wrapper.ModelWrapper,
-                        examples: Dict[str, instruction_example.InstructionExample]) -> Dict[str, float]:
+                        examples: Dict[str, instruction_example.InstructionExample],
+                        logging_filename: str = '') -> Dict[str, float]:
     """ Evaluates a hex predictor model over a set of examples. """
     # TODO: if all trajectory, then evaluate for all positions along the path
+
+    logger: evaluation_logger.EvaluationLogger = evaluation_logger.EvaluationLogger(logging_filename)
 
     full_observability: bool = model.get_arguments().get_state_rep_args().full_observability()
     eval_ids = instruction_example.get_example_action_index_pairs(
@@ -125,11 +129,15 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
     for example_id, action_index in eval_ids:
         example = examples[example_id]
 
-        if full_observability:
-            all_card_positions = [card.get_position() for card in example.get_initial_cards()]
-        else:
-            all_card_positions = sorted(list(set([card.get_position() for card in example.get_partial_observations()[
-                action_index].get_card_beliefs()])))
+        logger.log('***** Example #' + example_id + ' *****')
+        logger.log('Instruction: ' + ' '.join(example.get_instruction()))
+        logger.log('Action index: ' + str(action_index))
+
+        visible_cards = example.get_initial_cards()
+        if not full_observability:
+            visible_cards = example.get_partial_observations()[action_index].get_card_beliefs()
+
+        all_card_positions = sorted(list(set([visible_card.get_position() for visible_card in visible_cards])))
 
         auxiliary_predictions = auxiliary_predictions_dict[(example.get_id(), action_index)]
 
@@ -140,11 +148,25 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
             # Limit the gold set to be only the cards that are visible on the board
             gold_position_set = sorted(list(set(gold_position_set) & set(all_card_positions)))
 
+        if logger.active():
+            logger.log('Goal cards:')
+            for goal_card in example.get_touched_cards():
+                visibility: str = 'Not visible!' if goal_card.get_position() not in all_card_positions else ''
+                logger.log('\t' + str(goal_card) + '\t' + visibility)
+
         if auxiliary.Auxiliary.FINAL_GOALS in model.get_auxiliaries():
+            predicted_positions = sorted(list(set(get_hexes_above_threshold(
+                auxiliary_predictions[auxiliary.Auxiliary.FINAL_GOALS][0],
+                all_card_positions))))
+
+            if logger.active():
+                logger.log('Final card predictions:')
+                for visible_card in visible_cards:
+                    if visible_card.get_position() in predicted_positions:
+                        logger.log('\t' + str(visible_card))
+
             add_card_metrics(metric_results,
-                             sorted(list(set(get_hexes_above_threshold(
-                                 auxiliary_predictions[auxiliary.Auxiliary.FINAL_GOALS][0],
-                                 all_card_positions)))),
+                             predicted_positions,
                              gold_position_set,
                              str(auxiliary.Auxiliary.FINAL_GOALS))
 
@@ -214,9 +236,13 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
                     metric_results[str(auxiliary.Auxiliary.IMPLICIT) + ' accuracy layer ' + str(i)].append(1.)
                 else:
                     metric_results[str(auxiliary.Auxiliary.IMPLICIT) + ' accuracy layer ' + str(i)].append(0.)
+        logger.log('\n')
 
     # Compute the means
     final_results: Dict[str, float] = dict()
     for key, value in metric_results.items():
         final_results[key] = float(np.mean(np.array(value)))
+
+    logger.close()
+
     return final_results

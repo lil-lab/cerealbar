@@ -147,7 +147,8 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
               train_examples: Dict[str, Any],
               validation_examples: Dict[str, Any],
               experiment: crayon.CrayonExperiment,
-              train_evaluation_proportion: float):
+              train_evaluation_proportion: float,
+              evaluation_logging_filename: str):
         self.eval()
         with torch.no_grad():
 
@@ -158,14 +159,18 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
                 train_sample_dict[example.get_id()] = example
 
             train_results_dict: Dict[str, Any] = \
-                plan_metrics.plan_metric_results(self, train_sample_dict)
+                plan_metrics.plan_metric_results(
+                    self, train_sample_dict,
+                    evaluation_logging_filename + '-train' if evaluation_logging_filename else '')
 
             for name, float_value in train_results_dict.items():
                 experiment.add_scalar_value('train ' + str(name), float_value)
 
             # Evaluating on the validation subset
             validation_results_dict: Dict[str, Any] = \
-                plan_metrics.plan_metric_results(self, validation_examples)
+                plan_metrics.plan_metric_results(
+                    self, validation_examples,
+                    evaluation_logging_filename + '-val' if evaluation_logging_filename else '')
 
             for name, float_value in validation_results_dict.items():
                 experiment.add_scalar_value('val ' + str(name), float_value)
@@ -219,8 +224,14 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
                               optimizer,
                               experiment)
 
+            evaluation_filename = evaluation_arguments.get_evaluation_results_filename()
+            if evaluation_filename:
+                evaluation_filename = os.path.join(training_arguments.get_save_directory(),
+                                                   evaluation_filename + '-' + str(num_epochs))
+
             validation_goal_accuracy = self._eval(train_examples, validation_examples, experiment,
-                                                  training_arguments.get_proportion_of_train_for_accuracy())
+                                                  training_arguments.get_proportion_of_train_for_accuracy(),
+                                                  evaluation_filename)
 
             save_description: str = ''
 

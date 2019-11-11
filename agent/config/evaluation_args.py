@@ -41,6 +41,10 @@ class EvaluationArgs(args.Args):
                             default=False,
                             type=lambda x: bool(strtobool(x)),
                             help='Whether to show the auxiliary distributions in the Unity game.')
+        parser.add_argument('--evaluation_results_filename',
+                            default='',
+                            type=str,
+                            help='Filename to write evaluation results to. If empty string, will not be written.')
 
         self._save_file: str = None
         self._maximum_generation_length: int = None
@@ -50,6 +54,11 @@ class EvaluationArgs(args.Args):
         self._distance_threshold: int = None
         self._examples_filename: str = None
         self._visualize_auxiliaries: bool = None
+        self._evaluation_results_filename: str = None
+
+    def get_evaluation_results_filename(self) -> str:
+        self.check_initialized()
+        return self._evaluation_results_filename
 
     def get_save_file(self) -> str:
         self.check_initialized()
@@ -91,6 +100,7 @@ class EvaluationArgs(args.Args):
         self._split = parsed_args.split
         self._distance_threshold = parsed_args.metric_distance_threshold
         self._visualize_auxiliaries = parsed_args.visualize_auxiliaries
+        self._evaluation_results_filename = parsed_args.evaluation_results_filename
 
         if self._visualize_auxiliaries and not self._use_unity:
             raise ValueError('Need to use Unity to visualize auxiliaries.')
@@ -108,11 +118,14 @@ class EvaluationArgs(args.Args):
                        '\n\tUse Unity? %r' \
                        '\n\tVisualize auxiliaries? %r' \
                        '\n\tSave file: %r' \
+                       '\n\tWriting to filename: %r' \
                        '\n\tMaximum output sequence length: %r' \
                        '\n\tReset after instruction? %r' \
                        '\n\tSplit: %r' \
                        '\n\tDistance threshold: %r' % (self.use_unity(), self.visualize_auxiliaries(),
-                                                       self.get_save_file(), self.get_maximum_generation_length(),
+                                                       self.get_save_file(),
+                                                       self._evaluation_results_filename,
+                                                       self.get_maximum_generation_length(),
                                                        self.reset_after_instruction(), self.get_split(),
                                                        self.get_distance_threshold())
         if self.get_split() == dataset_split.DatasetSplit.SPECIFIED:
