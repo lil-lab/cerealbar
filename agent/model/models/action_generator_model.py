@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from agent.simulation import game
 
 
-class ActionPredictorModel(nn.Module):
+class ActionGeneratorModel(nn.Module):
     """ Module which predicts an action to take given a distribution over hexes.
 
     Args:
@@ -52,7 +52,7 @@ class ActionPredictorModel(nn.Module):
                  auxiliaries: List[auxiliary.Auxiliary],
                  load_pretrained: bool = True,
                  end_to_end: bool = False):
-        super(ActionPredictorModel, self).__init__()
+        super(ActionGeneratorModel, self).__init__()
         self._args: model_args.ModelArgs = args
         self._end_to_end = end_to_end
 
@@ -352,7 +352,18 @@ class ActionPredictorModel(nn.Module):
             if self._plan_predictor:
 
                 # Call the plan predictor.
-                pass
+                predictions = self._plan_predictor.get_predictions(example, current_observation)
+
+                avoid_probabilities = None
+                if auxiliary.Auxiliary.AVOID_LOCS in predictions:
+                    avoid_probabilities = predictions[auxiliary.Auxiliary.AVOID_LOCS]
+
+                goal_probabilities = None
+                if auxiliary.Auxiliary.FINAL_GOALS in predictions:
+                    avoid_probabilities = predictions[auxiliary.Auxiliary.FINAL_GOALS]
+
+                print(predictions)
+                exit()
 
 
             else:

@@ -341,9 +341,12 @@ class PlanPredictorModel(nn.Module):
         card_mask = torch.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH),
                                 device=util.DEVICE)
 
-        # TODO: Should this be initial cards when adapting to indices along the trajectory?
-        for card in example.get_initial_cards():
-            card_mask[card.get_position().x][card.get_position().y] = 1.
+        if observation:
+            for card in observation.get_card_beliefs():
+                card_mask[card.get_position().x][card.get_position().y] = 1.
+        else:
+            for card in example.get_initial_cards():
+                card_mask[card.get_position().x][card.get_position().y] = 1.
 
         if auxiliary.Auxiliary.INTERMEDIATE_GOALS in self._auxiliaries:
             # Also mask these.

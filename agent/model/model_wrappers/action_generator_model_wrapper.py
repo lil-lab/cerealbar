@@ -18,7 +18,7 @@ from agent.learning import auxiliary
 from agent.learning import batch_loss
 from agent.learning import plan_losses
 from agent.model.model_wrappers import model_wrapper
-from agent.model.models import action_predictor_model
+from agent.model.models import action_generator_model
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Set, Tuple
@@ -51,7 +51,7 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
         else:
             self._auxiliaries = dict()
 
-        self._model: action_predictor_model.ActionPredictorModel = action_predictor_model.ActionPredictorModel(
+        self._model: action_generator_model.ActionGeneratorModel = action_generator_model.ActionGeneratorModel(
             model_arguments, vocabulary, list(self._auxiliaries.keys()), load_pretrained, self._end_to_end)
         self._task: model_args.Task = model_arguments.get_task()
 
