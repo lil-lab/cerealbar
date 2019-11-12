@@ -21,6 +21,7 @@ from agent.environment import util as environment_util
 if TYPE_CHECKING:
     from agent.config import state_representation_args
     from agent.data import instruction_example
+    from agent.data import partial_observation
     from agent.environment import state_delta
     from typing import List, Tuple, Union
 
@@ -339,22 +340,23 @@ class StateRepresentation:
                 tent_rotation_tensor,
                 terrain_tensor]
 
-    def batch_partially_observable_indices(self,
-                                           examples: List[Tuple[instruction_example, int]]) -> Tuple[List[torch.Tensor],
-                                                                                                     torch.Tensor]:
+    def batch_partially_observable_indices(
+            self, examples: List[Tuple[instruction_example,
+                                       partial_observation.PartialObservation]]) -> Tuple[List[torch.Tensor],
+                                                                                          torch.Tensor]:
         # Delta indices. Just grab the observation at this index.
         batched_delta_indices = self.batch_state_delta_indices(
-            [example.get_partial_observations()[i].get_observed_state_delta() for example, i in examples])
+            [observation.get_observed_state_delta() for _, observation in examples])
 
         # Static indices. You can use the cache here! Anything that hasn't yet been observed will be zeroed out anyway.
-        batched_static_indices = self.batch_static_indices([example for example, i in examples])
+        batched_static_indices = self.batch_static_indices([example for example, _ in examples])
 
         state_masks: List[np.array] = list()
-        for example, action_index in examples:
+        for example, observation in examples:
             mask: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
 
             # Set the mask to 1 for all locations that have been observed (OK to use static state information)
-            for pos in example.get_partial_observations()[action_index].lifetime_observed_positions():
+            for pos in observation.lifetime_observed_positions():
                 mask[0][pos.x][pos.y] = 1.
 
             state_masks.append(mask)

@@ -12,7 +12,10 @@ from agent.config import model_args
 from agent.config import program_args
 from agent.data import dataset_split
 from agent.data import loading
+from agent.evaluation import action_generator_metrics
 from agent.evaluation import plan_metrics
+from agent.learning import auxiliary
+from agent.model.model_wrappers import action_generator_model_wrapper
 from agent.model.model_wrappers import create_model_wrapper
 
 if TYPE_CHECKING:
@@ -50,12 +53,29 @@ def evaluate_games(args: program_args.ProgramArgs):
         args.get_model_args(), training_args, vocabulary, load_pretrained=False)
 
     model.load(os.path.join(save_directory, evaluation_args.get_save_file()))
+
     model.eval()
 
-    task: model_args.Task = args.get_model_args().get_task()
+    model_arguments: model_args.ModelArgs = args.get_model_args()
+    task: model_args.Task = model_arguments.get_task()
 
     with torch.no_grad():
         if task in {model_args.Task.ACTION_GENERATOR, model_args.Task.SEQ2SEQ}:
+
+            assert isinstance(model, action_generator_model_wrapper.ActionGeneratorModelWrapper)
+
+            if evaluation_args.evaluate_with_pretrained_plan_predictor_path():
+                generator_arguments = model_arguments.get_decoder_args()
+                if not (generator_arguments.use_avoid_probabilities() and
+                        generator_arguments.use_obstacle_probabilities() and
+                        generator_arguments.use_goal_probabilities() and
+                        generator_arguments.use_trajectory_distribution()):
+                    raise NotImplementedError('Evaluating pretrained parts together without finetuning only supported '
+                                              'if all distributions are used')
+                model.load_pretrained_plan_predictor(evaluation_args.evaluate_with_pretrained_plan_predictor_path(),
+                                                     vocabulary,
+                                                     [auxiliary.Auxiliary.OBSTACLES, auxiliary.Auxiliary.FINAL_GOALS,
+                                                      auxiliary.Auxiliary.TRAJECTORY, auxiliary.Auxiliary.AVOID_LOCS])
 
             if split == dataset_split.DatasetSplit.SPECIFIED:
                 raise NotImplementedError
@@ -67,12 +87,23 @@ def evaluate_games(args: program_args.ProgramArgs):
 
                 run_examples(model, examples, args.get_game_args(), eval_args)
             else:
-                games: Dict[str, cereal_bar_game.CerealBarGame] = dataset.get_games(split)
-
-                logging.info('Evaluating %r games from split %r' % (len(games), split))
 
                 # TODO: Logging of results
-                # TODO: Evaluation
+
+                if evaluation_args.reset_after_instruction():
+                    examples: Dict[str, instruction_example.InstructionExample] = dataset.get_examples(split)
+                    logging.info('Evaluating %r examples from split %r' % (len(examples), split))
+                    results = action_generator_metrics.execution_accuracies(
+                        model,
+                        args.get_game_args(),
+                        evaluation_args,
+                        instruction_examples=list(examples.values()))
+                    print(results)
+                else:
+                    games: Dict[str, cereal_bar_game.CerealBarGame] = dataset.get_games(split)
+                    logging.info('Evaluating %r games from split %r' % (len(games), split))
+                    raise NotImplementedError
+
 
         elif task == model_args.Task.PLAN_PREDICTOR:
             print(plan_metrics.plan_metric_results(model, dataset.get_examples()))

@@ -1,14 +1,20 @@
-from typing import Any, Dict, List, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import torch
 from torch import nn
 
 from agent import util
-from agent.config import training_args
-from agent.data import aggregated_instruction_example
-from agent.data import instruction_example
 from agent.environment import util as environment_util
 from agent.learning import auxiliary
+
+if TYPE_CHECKING:
+    from agent.config import training_args
+    from agent.data import aggregated_instruction_example
+    from agent.data import instruction_example
+    from agent.data import partial_observation
+    from typing import Any, Dict, List, Union
 
 
 class SpatialSoftmax2d(nn.Module):
@@ -51,12 +57,12 @@ class CrossEntropy2d(nn.Module):
 def compute_trajectory_loss(example: Union[instruction_example.InstructionExample,
                                            aggregated_instruction_example.AggregatedInstructionExample],
                             predicted_map_distribution: torch.Tensor,
-                            action_index: int,
+                            observation: partial_observation.PartialObservation,
                             weight_by_time: bool,
                             full_observability: bool):
     gold_map = example.get_correct_trajectory_distribution(weight_by_time=weight_by_time,
                                                            full_observability=full_observability,
-                                                           action_index=action_index)
+                                                           observation=observation)
     return CrossEntropy2d()(predicted_map_distribution,
                             torch.tensor(gold_map).float().unsqueeze(0).unsqueeze(0).unsqueeze(0).to(util.DEVICE))
 
@@ -100,7 +106,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                                          auxiliary_losses: Dict[auxiliary.Auxiliary, List[torch.Tensor]],
                                          traj_weight_by_time: bool,
                                          full_observability: bool,
-                                         action_idx: int = 0):
+                                         observation: partial_observation.PartialObservation = None):
     intermediate_goal_scores: List[torch.Tensor] = list()
     avoid_scores: List[torch.Tensor] = list()
     final_goal_scores: List[torch.Tensor] = list()
@@ -112,7 +118,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
     touched_positions = [card.get_position() for card in example.get_touched_cards()]
     touched_plus_initial = [card.get_position() for card in example.get_touched_cards(include_start_position=True)]
     if full_observability:
-        for card in example.get_state_deltas()[action_idx].cards:
+        for card in example.get_state_deltas()[0].cards:
             position = card.get_position()
 
             # If it's to be touched, give a 1 label
@@ -140,7 +146,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                     avoid_labels.append(torch.tensor(1.))
     else:
         # Only compute loss over cards that are believed to exist. Other cards are impossible to predict.
-        for card in example.get_partial_observations()[action_idx].get_card_beliefs():
+        for card in observation.get_card_beliefs():
             position = card.get_position()
 
             # If it is touched by the agent, give it a 1 label
@@ -236,7 +242,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
         auxiliary_losses[auxiliary.Auxiliary.TRAJECTORY].append(
             compute_trajectory_loss(example,
                                     auxiliary_dict[auxiliary.Auxiliary.TRAJECTORY][0][example_idx].unsqueeze(0),
-                                    action_idx,
+                                    observation,
                                     traj_weight_by_time,
                                     full_observability))
 
@@ -257,7 +263,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                 # zero)
                 state_mask = torch.zeros((environment_util.ENVIRONMENT_WIDTH,
                                           environment_util.ENVIRONMENT_DEPTH)).float()
-                for position in example.get_partial_observations()[action_idx].lifetime_observed_positions():
+                for position in observation.lifetime_observed_positions():
                     state_mask[position.x][position.y] = 1.
                 state_mask = state_mask.to(util.DEVICE)
                 impassable_label = impassable_label.to(util.DEVICE)

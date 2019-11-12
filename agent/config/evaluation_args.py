@@ -45,6 +45,11 @@ class EvaluationArgs(args.Args):
                             default='',
                             type=str,
                             help='Filename to write evaluation results to. If empty string, will not be written.')
+        parser.add_argument('--evaluate_with_pretrained_plan_predictor_path',
+                            default='',
+                            type=str,
+                            help='The filename of a pretrained plan predictor to use with a pretrained action '
+                                 'predictor.')
 
         self._save_file: str = None
         self._maximum_generation_length: int = None
@@ -55,6 +60,8 @@ class EvaluationArgs(args.Args):
         self._examples_filename: str = None
         self._visualize_auxiliaries: bool = None
         self._evaluation_results_filename: str = None
+
+        self._evaluate_with_pretrained_plan_predictor_path: str = None
 
     def get_evaluation_results_filename(self) -> str:
         self.check_initialized()
@@ -92,6 +99,10 @@ class EvaluationArgs(args.Args):
         self.check_initialized()
         return self._visualize_auxiliaries
 
+    def evaluate_with_pretrained_plan_predictor_path(self) -> str:
+        self.check_initialized()
+        return self._evaluate_with_pretrained_plan_predictor_path
+
     def interpret_args(self, parsed_args: Namespace):
         self._save_file = parsed_args.save_file
         self._maximum_generation_length = parsed_args.maximum_generation_length
@@ -101,6 +112,7 @@ class EvaluationArgs(args.Args):
         self._distance_threshold = parsed_args.metric_distance_threshold
         self._visualize_auxiliaries = parsed_args.visualize_auxiliaries
         self._evaluation_results_filename = parsed_args.evaluation_results_filename
+        self._evaluate_with_pretrained_plan_predictor_path = parsed_args.evaluate_with_pretrained_plan_predictor_path
 
         if self._visualize_auxiliaries and not self._use_unity:
             raise ValueError('Need to use Unity to visualize auxiliaries.')
@@ -118,12 +130,14 @@ class EvaluationArgs(args.Args):
                        '\n\tUse Unity? %r' \
                        '\n\tVisualize auxiliaries? %r' \
                        '\n\tSave file: %r' \
+                       '\n\tLoad pretrained plan predictor: %r' \
                        '\n\tWriting to filename: %r' \
                        '\n\tMaximum output sequence length: %r' \
                        '\n\tReset after instruction? %r' \
                        '\n\tSplit: %r' \
                        '\n\tDistance threshold: %r' % (self.use_unity(), self.visualize_auxiliaries(),
                                                        self.get_save_file(),
+                                                       self.evaluate_with_pretrained_plan_predictor_path(),
                                                        self._evaluation_results_filename,
                                                        self.get_maximum_generation_length(),
                                                        self.reset_after_instruction(), self.get_split(),

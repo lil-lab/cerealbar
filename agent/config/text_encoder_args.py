@@ -63,7 +63,7 @@ class TextEncoderArgs(args.Args):
         return str_rep
 
     def __eq__(self, other) -> bool:
-        return self._cell_type == other.cell_type \
-               and self._word_embedding_size == other.word_emb_size \
-               and self._hidden_size == other.get_hidden_size() \
-               and self._number_layers == other.num_layers
+        assert isinstance(other, TextEncoderArgs)
+        return (self._cell_type == other._cell_type and self._word_embedding_size == other.get_word_embedding_size()
+                and self._hidden_size == other.get_hidden_size() and self._number_layers ==
+                other.get_number_of_layers())

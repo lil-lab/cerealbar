@@ -98,6 +98,13 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
 
         return torch.mean(torch.stack(tuple(losses))), auxiliary_losses
 
+    def load_pretrained_plan_predictor(self, filepath: str, vocabulary: List[str],
+                                       auxiliaries: List[auxiliary.Auxiliary]):
+        if self._parallelized:
+            self._model.module.load_pretrained_plan_predictor(filepath)
+        else:
+            self._model.load_pretrained_plan_predictor(filepath, vocabulary, auxiliaries)
+
     def _eval(self,
               train_examples: Dict[str, instruction_example.InstructionExample],
               validation_examples: Dict[str, instruction_example.InstructionExample],

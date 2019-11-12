@@ -5,7 +5,11 @@ Classes:
 """
 
 from enum import Enum
+import logging
+import torch
 from torch import nn
+
+from agent import util
 
 
 class Initialization(Enum):
@@ -36,3 +40,26 @@ def initialize_rnn(rnn: nn.RNN) -> None:
         elif 'weight' in name:
             # Otherwise do Xavier initialization
             nn.init.xavier_normal_(param)
+
+
+def load_pretrained_parameters(filepath: str, freeze: bool = False, module: nn.Module = None):
+    logging.info('Loading parameters for action predictor from %s', filepath)
+
+    # The loaded parameters are an ordered dictionary.
+    for name, param in torch.load(filepath, map_location=util.DEVICE).items():
+        if name not in module.state_dict():
+            logging.warn('Loaded action predictor contained an unrecognized parameter: ' + name)
+            continue
+        if freeze:
+            logging.info('Loading and freezing parameter %s', name)
+        else:
+            logging.info('Loading parameter %s', name)
+        module.state_dict()[name].copy_(param)
+        if freeze:
+            froze: bool = False
+            for my_name, my_param in module.named_parameters():
+                if name == my_name:
+                    my_param.requires_grad = False
+                    froze = True
+            if not froze:
+                raise ValueError('Could not freeze parameters ' + name)

@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from agent.config import model_args
     from agent.config import state_representation_args
     from agent.data import instruction_example
+    from agent.data import partial_observation
     from typing import Any, List, Dict, Optional, Tuple
 
 
@@ -148,7 +149,8 @@ class PlanPredictorModel(nn.Module):
         return self._instruction_encoder.get_word_embedder()
 
     def batch_inputs(self,
-                     examples: List[Tuple[instruction_example.InstructionExample, int]],
+                     examples: List[Tuple[instruction_example.InstructionExample,
+                                          partial_observation.PartialObservation]],
                      put_on_device: bool = False) -> List[torch.Tensor]:
         """ Batches inputs for the hex predictor model into a list of tensors.
 
@@ -314,14 +316,14 @@ class PlanPredictorModel(nn.Module):
 
     def get_predictions(self,
                         example: instruction_example.InstructionExample,
-                        action_index: int) -> Dict[auxiliary.Auxiliary, Any]:
+                        observation: partial_observation.PartialObservation = None) -> Dict[auxiliary.Auxiliary, Any]:
         """ Gets the predictions of the model for an example.
 
         Arguments:
             example: instruction_example.InstructionExample. The example to predict for.
-            action_index: The index of the action it should be predicting for.
+            observation: partial_observation.PartialObsevation. The observation to predict for (may be None).
         """
-        batched_inputs = self.batch_inputs([(example, action_index)])
+        batched_inputs = self.batch_inputs([(example, observation)])
 
         if torch.cuda.device_count() >= 1:
             cuda_inputs = []

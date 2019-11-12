@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from agent.config import game_args
     from agent.config import training_args
     from agent.data import game_dataset
+    from agent.data import partial_observation
     from pycrayon import crayon
     from typing import Any, Dict, List, Tuple
 
@@ -64,7 +65,8 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
 
     def loss(self,
              examples: List[Tuple[instruction_example.InstructionExample,
-                                  int]]) -> Tuple[torch.Tensor, Dict[auxiliary.Auxiliary, Any]]:
+                                  partial_observation.PartialObservation]]) -> Tuple[torch.Tensor,
+                                                                                     Dict[auxiliary.Auxiliary, Any]]:
 
         # First, batch the model inputs.
         if self._parallelized:
@@ -82,11 +84,11 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
         # The action index doesn't affect anything about this loss computation, as the gold trajectory distribution
         # and card distribution should remain the same throughout.
 
-        for i, (example, action_idx) in enumerate(examples):
+        for i, (example, observation) in enumerate(examples):
             plan_losses.compute_per_example_auxiliary_losses(
                 example, i, auxiliary_dict, list(self._auxiliaries.keys()), auxiliary_loss_dict,
                 self._args.get_decoder_args().weight_trajectory_by_time(),
-                self.get_arguments().get_state_rep_args().full_observability())
+                self.get_arguments().get_state_rep_args().full_observability(), observation)
 
         # Now compute the means for each of the auxiliary losses
         for specified_auxiliary in list(self._auxiliaries.keys()):
@@ -117,7 +119,9 @@ class PlanPredictorWrapper(model_wrapper.ModelWrapper):
                 pbar.update(num_batches)
                 examples_in_batch: List[Any] = list()
                 for ex_id, idx in train_ids[start_idx:start_idx + batch_size]:
-                    examples_in_batch.append((train_examples[ex_id], idx))
+                    examples_in_batch.append((train_examples[ex_id],
+                                              train_examples[ex_id].get_partial_observations()[idx] if idx >= 0 else
+                                              None))
 
                 loss_for_batch, _, losses_for_auxiliaries = batch_loss.apply_batch_loss(
                     self,

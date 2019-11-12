@@ -4,6 +4,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from agent import util
+from agent.evaluation import evaluation_logger
 from agent.evaluation import metric
 from agent.simulation import python_game
 

@@ -1,19 +1,24 @@
 """Example of an instruction paired with agent actions."""
-from typing import Dict, List, Optional, Set, Tuple
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from agent import util
-from agent.data import cereal_bar_game
 from agent.data import gameplay_action
-from agent.data import partial_observation
 from agent.environment import agent_actions
-from agent.environment import card
 from agent.environment import environment_objects
-from agent.environment import position
-from agent.environment import state_delta
 from agent.environment import terrain
 from agent.environment import util as environment_util
+
+if TYPE_CHECKING:
+    from typing import Dict, List, Optional, Set, Tuple
+    from agent.data import cereal_bar_game
+    from agent.data import partial_observation
+    from agent.environment import card
+    from agent.environment import position
+    from agent.environment import state_delta
 
 
 class InstructionExample:
@@ -192,8 +197,11 @@ class InstructionExample:
     def get_correct_trajectory_distribution(self,
                                             weight_by_time: bool,
                                             full_observability: bool = True,
-                                            action_index: int = 0,
+                                            observation: partial_observation.PartialObservation = None,
                                             observed_positions: Set[position.Position] = None) -> np.array:
+
+        if full_observability and observation:
+            raise ValueError('If using full observability, do not need to provide an observation object.')
 
         distribution: np.array = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
         if weight_by_time:
@@ -202,7 +210,7 @@ class InstructionExample:
             if not full_observability:
                 # Remove things from the path that were not observed at this point.
                 if not observed_positions:
-                    observed_positions = self.get_partial_observations()[action_index].currently_observed_positions()
+                    observed_positions = observation.currently_observed_positions()
                 new_path: List[position.Position] = list()
                 for pos in path:
                     if pos in observed_positions:
@@ -226,7 +234,7 @@ class InstructionExample:
                 # Limit by positions visible _right now_. The distribution won't include hexes that aren't currently
                 # visible.
                 if not observed_positions:
-                    observed_positions = self.get_partial_observations()[action_index].currently_observed_positions()
+                    observed_positions = observation.currently_observed_positions()
                 correct_trajectory = list(set(correct_trajectory) & observed_positions)
 
             if len(correct_trajectory) == 0:
@@ -389,4 +397,4 @@ def get_example_action_index_pairs(examples: Dict[str, InstructionExample],
             for i in range(len(example.get_action_sequence())):
                 ids.append((example_id, i))
         return ids
-    return [(key, 0) for key in examples.keys()]
+    return [(key, -1) for key in examples.keys()]

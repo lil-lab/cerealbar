@@ -134,7 +134,7 @@ class ProgramArgs(args.Args):
                             other.get_evaluation_args())
         if self._run_type == RunType.TRAIN:
             still_same = still_same and self._training_args == other.get_training_args()
-        if self._run_type not in (RunType.REPLAY, RunType.AUTOPLAY):
+        if self._run_type != RunType.REPLAY:
             still_same = still_same and self._model_args == other.get_model_args()
 
         return still_same

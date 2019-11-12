@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING
 
+import logging
 import numpy as np
 import torch
 from torch import nn
@@ -24,6 +25,7 @@ from agent.learning import sampling
 from agent.model.models import plan_predictor_model
 from agent.model.modules import map_distribution_embedder
 from agent.model.modules import word_embedder
+from agent.model.utilities import initialization
 from agent.model.utilities import rnn
 from agent.simulation import planner
 
@@ -56,7 +58,7 @@ class ActionPredictorModel(nn.Module):
 
         # If end-to-end, also add in the hex predictor model.
         self._plan_predictor: Optional[plan_predictor_model.PlanPredictorModel] = None
-        if self._end_to_end:
+        if self._end_to_end or load_pretrained:
             self._plan_predictor: plan_predictor_model.PlanPredictorModel = plan_predictor_model.PlanPredictorModel(
                 args, input_vocabulary, auxiliaries)
 
@@ -107,15 +109,22 @@ class ActionPredictorModel(nn.Module):
                 self._args.get_decoder_args().use_recurrence())
 
         if load_pretrained:
-            raise ValueError('Not supported yet')
             if self._args.get_decoder_args().pretrained_generator():
-                load_pretrained_parameters(self._args.get_decoder_args().pretrained_generator_filepath(),
-                                           self._args.get_decoder_args().freeze_pretrained_generator(),
-                                           module=self)
-            if self._args.get_decoder_args().pretrained_hex_predictor():
-                load_pretrained_parameters(self._args.get_decoder_args().pretrained_hex_predictor_filepath(),
-                                           self._args.get_decoder_args().freeze_pretrained_hex_predictor(),
-                                           module=self._plan_predictor)
+                initialization.load_pretrained_parameters(
+                    self._args.get_decoder_args().pretrained_action_generator_filepath(),
+                    module=self)
+            if self._args.get_decoder_args().pretrained_plan_predictor():
+                initialization.load_pretrained_parameters(
+                    self._args.get_decoder_args().pretrained_plan_predictor_filepath(),
+                    module=self._plan_predictor)
+
+    def load_pretrained_plan_predictor(self, filepath: str, vocabulary: List[str],
+                                       auxiliaries: List[auxiliary.Auxiliary]):
+        assert not self._plan_predictor
+        logging.info('Loading pretrained plan predictor: ' + filepath + ' with auxiliaries: %r' % auxiliaries)
+        self._plan_predictor: plan_predictor_model.PlanPredictorModel = plan_predictor_model.PlanPredictorModel(
+            self._args, vocabulary, auxiliaries)
+        initialization.load_pretrained_parameters(filepath, module=self._plan_predictor)
 
     def _encode_and_expand_map_distributions(self,
                                              goal_probabilities: torch.Tensor,
@@ -321,8 +330,8 @@ class ActionPredictorModel(nn.Module):
             self, example: instruction_example.InstructionExample, game_server: game.Game,
             evaluation_arguments: evaluation_args.EvaluationArgs) -> Tuple[List[agent_actions.AgentAction],
                                                                            List[state_delta.StateDelta]]:
-        if self._end_to_end:
-            raise NotImplementedError('End-to-end not implemented for partial observability yet.')
+        if self._end_to_end and not self._plan_predictor:
+            raise ValueError('Action predictor must have a plan predictor if evaluating end-to-end.')
 
         action_sequence: List[agent_actions.AgentAction] = [agent_actions.AgentAction.START]
         stopped: bool = False
@@ -340,38 +349,45 @@ class ActionPredictorModel(nn.Module):
                evaluation_arguments.get_maximum_generation_length() < 0) and not stopped:
 
             # Compute the updated timestep map given the most recent partial observation.
+            if self._plan_predictor:
 
-            # TODO: Consider that when training with gold distribution inputs, if the agent gets off the path,
-            # the old path distribution isn't useful whereas when training end-to-end it should be updated wrt. the
-            # agent's current path distribution.
-            trajectory_distribution = torch.tensor(example.get_correct_trajectory_distribution(
-                self._args.get_decoder_args().weight_trajectory_by_time(),
-                full_observability=False,
-                observed_positions=current_observation.currently_observed_positions())).float()
+                # Call the plan predictor.
+                pass
 
-            goal_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
-            avoid_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
-            target_cards = example.get_touched_cards()
-            for believed_card in current_observation.get_card_beliefs():
-                card_position = believed_card.get_position()
-                if believed_card in target_cards:
-                    goal_probabilities[card_position.x][card_position.y] = 1.
-                elif card_position != example.get_initial_state().follower.get_position():
-                    avoid_probabilities[card_position.x][card_position.y] = 1.
 
-            # Obstacle probabilities
-            obstacle_probabilities = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
-            for pos in sorted(example.get_obstacle_positions()):
-                assert pos not in example.get_visited_positions()
-                obstacle_probabilities[pos.x][pos.y] = 1.
-            state_mask = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
-            for viewed_position in current_observation.lifetime_observed_positions():
-                state_mask[viewed_position.x][viewed_position.y] = 1.
-            obstacle_probabilities = obstacle_probabilities * state_mask
+            else:
 
-            timestep_map = self._combine_distributions(goal_probabilities, trajectory_distribution,
-                                                       torch.tensor(obstacle_probabilities).float(),
-                                                       avoid_probabilities)
+                # Note: when training with gold distribution inputs, if the agent gets off the path,
+                # the old path distribution isn't useful whereas when training end-to-end it should be updated wrt. the
+                # agent's current path distribution.
+                trajectory_distribution = torch.tensor(example.get_correct_trajectory_distribution(
+                    self._args.get_decoder_args().weight_trajectory_by_time(),
+                    full_observability=False,
+                    observed_positions=current_observation.currently_observed_positions())).float()
+
+                goal_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
+                avoid_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
+                target_cards = example.get_touched_cards()
+                for believed_card in current_observation.get_card_beliefs():
+                    card_position = believed_card.get_position()
+                    if believed_card in target_cards:
+                        goal_probabilities[card_position.x][card_position.y] = 1.
+                    elif card_position != example.get_initial_state().follower.get_position():
+                        avoid_probabilities[card_position.x][card_position.y] = 1.
+
+                # Obstacle probabilities
+                obstacle_probabilities = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+                for pos in sorted(example.get_obstacle_positions()):
+                    assert pos not in example.get_visited_positions()
+                    obstacle_probabilities[pos.x][pos.y] = 1.
+                state_mask = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+                for viewed_position in current_observation.lifetime_observed_positions():
+                    state_mask[viewed_position.x][viewed_position.y] = 1.
+                obstacle_probabilities = obstacle_probabilities * state_mask
+
+                timestep_map = self._combine_distributions(goal_probabilities, trajectory_distribution,
+                                                           torch.tensor(obstacle_probabilities).float(),
+                                                           avoid_probabilities)
 
             predicted_action, rnn_state, resulting_game_state = \
                 self._predict_one_action(action_sequence,
@@ -618,8 +634,6 @@ class ActionPredictorModel(nn.Module):
             # If partial observability, need to recompute distributions at each step.
             if evaluation_arguments.visualize_auxiliaries():
                 raise NotImplementedError('Need to implement visualization for partial observability.')
-            if self._end_to_end:
-                raise NotImplementedError('Need to implement end-to-end partial observability.')
 
             action_sequence, visited_states = self._predict_actions_partial_observability(example, game_server,
                                                                                           evaluation_arguments)

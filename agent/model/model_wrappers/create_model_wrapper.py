@@ -15,6 +15,7 @@ def get_model_wrapper(model_arguments: model_args.ModelArgs,
                       vocabulary: List[str],
                       logger: CrayonExperiment = None,
                       load_pretrained: bool = True) -> model_wrapper.ModelWrapper:
+    print('Load pretrained? %r' % load_pretrained)
     task: model_args.Task = model_arguments.get_task()
     if task == model_args.Task.PLAN_PREDICTOR:
         return plan_predictor_wrapper.PlanPredictorWrapper(model_arguments, training_arguments, vocabulary, logger)
