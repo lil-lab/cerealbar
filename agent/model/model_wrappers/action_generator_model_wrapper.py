@@ -85,13 +85,11 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                     action))]
                 losses.append(action_score)
 
-            plan_losses.compute_per_example_auxiliary_losses(example,
-                                                             i,
-                                                             auxiliaries,
-                                                             list(self._auxiliaries),
-                                                             auxiliary_losses,
-                                                             self._args.get_decoder_args().weight_trajectory_by_time(),
-                                                             self._args.get_state_rep_args().full_observability())
+            if self._end_to_end:
+                plan_losses.compute_per_example_auxiliary_losses(
+                    example, i, auxiliaries, list(self._auxiliaries), auxiliary_losses,
+                    self._args.get_decoder_args().weight_trajectory_by_time(),
+                    self._args.get_state_rep_args().full_observability())
 
         for auxiliary_name in self._auxiliaries:
             auxiliary_losses[auxiliary_name] = torch.mean(torch.stack(tuple(auxiliary_losses[auxiliary_name])))
