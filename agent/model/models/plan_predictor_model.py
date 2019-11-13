@@ -343,6 +343,7 @@ class PlanPredictorModel(nn.Module):
 
         if observation:
             for card in observation.get_card_beliefs():
+                # Masks by all cards believed to be on the board.
                 card_mask[card.get_position().x][card.get_position().y] = 1.
         else:
             for card in example.get_initial_cards():

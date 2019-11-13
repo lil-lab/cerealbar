@@ -385,9 +385,6 @@ class TrainingArgs(args.Args):
 
         self._aggregate_examples = parsed_args.aggregate_examples
 
-        if not self._save_directory or self._save_directory == '.':
-            raise ValueError('Should not save in the current working directory')
-
         super(TrainingArgs, self).interpret_args(parsed_args)
 
     def __str__(self) -> str:

@@ -56,6 +56,9 @@ class InstructionExample:
             str_hash += str(initial_card) + '/'
         return str_hash
 
+    def get_seed(self) -> int:
+        return self._paired_game.get_seed()
+
     def get_id(self) -> str:
         return self._paired_game.get_id() + '-' + str(self._example_idx_in_interaction)
 

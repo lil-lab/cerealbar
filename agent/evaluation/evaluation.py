@@ -104,6 +104,5 @@ def evaluate_games(args: program_args.ProgramArgs):
                     logging.info('Evaluating %r games from split %r' % (len(games), split))
                     raise NotImplementedError
 
-
         elif task == model_args.Task.PLAN_PREDICTOR:
             print(plan_metrics.plan_metric_results(model, dataset.get_examples()))

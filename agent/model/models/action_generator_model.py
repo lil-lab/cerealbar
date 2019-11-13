@@ -18,9 +18,11 @@ from agent import util
 from agent.data import partial_observation
 from agent.environment import agent_actions
 from agent.environment import util as environment_util
+from agent.evaluation import distribution_visualizer
+from agent.evaluation import plan_metrics
 from agent.learning import auxiliary
 from agent.learning import batch_util
-from agent.evaluation import plan_metrics
+from agent.learning import plan_losses
 from agent.learning import sampling
 from agent.model.models import plan_predictor_model
 from agent.model.modules import map_distribution_embedder
@@ -28,6 +30,7 @@ from agent.model.modules import word_embedder
 from agent.model.utilities import initialization
 from agent.model.utilities import rnn
 from agent.simulation import planner
+from agent.simulation import unity_game
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional, Tuple
@@ -35,6 +38,7 @@ if TYPE_CHECKING:
     from agent.config import evaluation_args
     from agent.config import model_args
     from agent.data import instruction_example
+    from agent.evaluation import evaluation_logger
     from agent.environment import state_delta
     from agent.simulation import game
 
@@ -293,6 +297,9 @@ class ActionGeneratorModel(nn.Module):
             evaluation_arguments: evaluation_args.EvaluationArgs) -> Tuple[List[agent_actions.AgentAction],
                                                                            List[state_delta.StateDelta]]:
 
+        if evaluation_arguments.visualize_auxiliaries():
+            raise NotImplementedError
+
         action_sequence: List[agent_actions.AgentAction] = [agent_actions.AgentAction.START]
         stopped: bool = False
         timestep: int = 0
@@ -328,8 +335,9 @@ class ActionGeneratorModel(nn.Module):
 
     def _predict_actions_partial_observability(
             self, example: instruction_example.InstructionExample, game_server: game.Game,
-            evaluation_arguments: evaluation_args.EvaluationArgs) -> Tuple[List[agent_actions.AgentAction],
-                                                                           List[state_delta.StateDelta]]:
+            evaluation_arguments: evaluation_args.EvaluationArgs,
+            logger: evaluation_logger.EvaluationLogger) -> Tuple[List[agent_actions.AgentAction],
+                                                                 List[state_delta.StateDelta]]:
         if self._end_to_end and not self._plan_predictor:
             raise ValueError('Action predictor must have a plan predictor if evaluating end-to-end.')
 
@@ -348,6 +356,16 @@ class ActionGeneratorModel(nn.Module):
         while (timestep < evaluation_arguments.get_maximum_generation_length() or
                evaluation_arguments.get_maximum_generation_length() < 0) and not stopped:
 
+            visible_cards = current_observation.get_card_beliefs()
+            all_card_positions = sorted(list(set([visible_card.get_position() for visible_card in visible_cards])))
+            if logger.active():
+                logger.log('Action #' + str(timestep))
+
+                logger.log('Goal cards:')
+                for goal_card in example.get_touched_cards():
+                    visibility: str = 'Not visible!' if goal_card.get_position() not in all_card_positions else ''
+                    logger.log('\t' + str(goal_card) + '\t' + visibility)
+
             # Compute the updated timestep map given the most recent partial observation.
             if self._plan_predictor:
 
@@ -356,15 +374,29 @@ class ActionGeneratorModel(nn.Module):
 
                 avoid_probabilities = None
                 if auxiliary.Auxiliary.AVOID_LOCS in predictions:
-                    avoid_probabilities = predictions[auxiliary.Auxiliary.AVOID_LOCS]
+                    avoid_probabilities = predictions[auxiliary.Auxiliary.AVOID_LOCS].squeeze()
 
                 goal_probabilities = None
                 if auxiliary.Auxiliary.FINAL_GOALS in predictions:
-                    avoid_probabilities = predictions[auxiliary.Auxiliary.FINAL_GOALS]
+                    goal_probabilities = predictions[auxiliary.Auxiliary.FINAL_GOALS].squeeze()
 
-                print(predictions)
-                exit()
+                    if logger.active():
+                        logger.log('Card predictions:')
+                        predicted_positions = sorted(list(set(plan_metrics.get_hexes_above_threshold(
+                            goal_probabilities, all_card_positions))))
 
+                        for visible_card in visible_cards:
+                            if visible_card.get_position() in predicted_positions:
+                                logger.log('\t' + str(visible_card))
+
+                obstacle_probabilities = None
+                if auxiliary.Auxiliary.OBSTACLES in predictions:
+                    obstacle_probabilities = predictions[auxiliary.Auxiliary.OBSTACLES].squeeze()
+
+                trajectory_distribution = None
+                if auxiliary.Auxiliary.TRAJECTORY in predictions:
+                    trajectory_distribution = plan_losses.SpatialSoftmax2d()(
+                        predictions[auxiliary.Auxiliary.TRAJECTORY]).squeeze()
 
             else:
 
@@ -394,17 +426,33 @@ class ActionGeneratorModel(nn.Module):
                 state_mask = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
                 for viewed_position in current_observation.lifetime_observed_positions():
                     state_mask[viewed_position.x][viewed_position.y] = 1.
-                obstacle_probabilities = obstacle_probabilities * state_mask
+                obstacle_probabilities = torch.tensor(obstacle_probabilities * state_mask).float()
 
-                timestep_map = self._combine_distributions(goal_probabilities, trajectory_distribution,
-                                                           torch.tensor(obstacle_probabilities).float(),
-                                                           avoid_probabilities)
+            if evaluation_arguments.visualize_auxiliaries():
+                # Send the auxiliaries
+                assert isinstance(game_server, unity_game.UnityGame)
+
+                visibility = np.zeros((environment_util.ENVIRONMENT_DEPTH, environment_util.ENVIRONMENT_WIDTH))
+                for pos in current_observation.currently_observed_positions():
+                    visibility[pos.x][pos.y] = 1.
+
+                distribution_visualizer.visualize_probabilities(goal_probabilities.numpy(),
+                                                                trajectory_distribution.numpy(),
+                                                                obstacle_probabilities.numpy(),
+                                                                #avoid_probabilities.numpy(),
+                                                                visibility,
+                                                                game_server)
+
+            timestep_map = self._combine_distributions(goal_probabilities, trajectory_distribution,
+                                                       obstacle_probabilities,
+                                                       avoid_probabilities)
 
             predicted_action, rnn_state, resulting_game_state = \
                 self._predict_one_action(action_sequence,
                                          game_server,
                                          timestep_map.to(util.DEVICE),
                                          rnn_state)
+            logger.log('Predicted action: %r' % predicted_action)
             visited_states.append(resulting_game_state)
 
             current_observation = partial_observation.update_observation(current_observation, resulting_game_state)
@@ -562,9 +610,11 @@ class ActionGeneratorModel(nn.Module):
                         goal_probabilities: torch.Tensor = None,
                         trajectory_distribution: torch.Tensor = None,
                         obstacle_probabilities: torch.Tensor = None,
-                        avoid_probabilities: torch.Tensor = None) -> Tuple[List[agent_actions.AgentAction],
-                                                                           Dict[auxiliary.Auxiliary, torch.Tensor],
-                                                                           List[state_delta.StateDelta]]:
+                        avoid_probabilities: torch.Tensor = None,
+                        logger: evaluation_logger.EvaluationLogger = None) -> Tuple[List[agent_actions.AgentAction],
+                                                                                    Dict[auxiliary.Auxiliary,
+                                                                                         torch.Tensor],
+                                                                                    List[state_delta.StateDelta]]:
         """ Gets predictions for a model doing inference (i.e., not gold forcing).
 
         Arguments:
@@ -575,6 +625,7 @@ class ActionGeneratorModel(nn.Module):
             trajectory_distribution: torch.Tensor. An optional distribution over trajectories.
             obstacle_probabilities: torch.Tensor. An optional distribution over impassable locations.
             avoid_probabilities: torch.Tensor. An optional distribution over locations to avoid.
+            logger: evaluation_logger.EvaluationLogger. A logger for logging evaluation results.
         """
 
         # TODO: This is assuming starting in the correct start state for this instruction
@@ -585,6 +636,9 @@ class ActionGeneratorModel(nn.Module):
         auxiliary_predictions: Dict[auxiliary.Auxiliary, Any] = dict()
 
         if self._args.get_state_rep_args().full_observability():
+            if logger:
+                raise NotImplementedError
+
             # If full observability, first compute the distributions, then use them to compute the action sequence.
             if trajectory_distribution is None:
                 if self._end_to_end:
@@ -643,10 +697,8 @@ class ActionGeneratorModel(nn.Module):
 
         else:
             # If partial observability, need to recompute distributions at each step.
-            if evaluation_arguments.visualize_auxiliaries():
-                raise NotImplementedError('Need to implement visualization for partial observability.')
-
             action_sequence, visited_states = self._predict_actions_partial_observability(example, game_server,
-                                                                                          evaluation_arguments)
+                                                                                          evaluation_arguments,
+                                                                                          logger)
 
         return action_sequence, auxiliary_predictions, visited_states

@@ -21,7 +21,7 @@ class EvaluationArgs(args.Args):
                             type=lambda x: bool(strtobool(x)),
                             help='Whether to reset each game after each instruction to the correct state.')
         parser.add_argument('--use_unity',
-                            default=True,
+                            default=False,
                             type=lambda x: bool(strtobool(x)),
                             help='Whether to use the Unity compiled game to run simulations.')
         parser.add_argument('--split',

@@ -116,6 +116,8 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
 
     # Get labels and matched predictions for goals and places to avoid
     touched_positions = [card.get_position() for card in example.get_touched_cards()]
+
+    # This is all cards to touch, including the initial location if it includes a card
     touched_plus_initial = [card.get_position() for card in example.get_touched_cards(include_start_position=True)]
     if full_observability:
         for card in example.get_state_deltas()[0].cards:
@@ -182,7 +184,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
             # This is also currently updating wrt. newest card information, including if new cards appear,
             # which will (once they appear) get a label of 0.
 
-            # TODO: Should this also be computed with most recent card information? (What it's doing now)
+            # Computed over all current card beliefs, including cards that may have appeared during execution
             if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
                 avoid_scores.append(
                     auxiliary_dict[auxiliary.Auxiliary.AVOID_LOCS][example_idx][0][position.x][position.y])

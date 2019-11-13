@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 MAX_SEED: int = 100000000
 MAX_NUM_ATTEMPTS: int = 10
+MAX_MESSAGE_LENGTH: int = 4081
 
 
 class UnityGame(game.Game):
@@ -223,7 +224,7 @@ class UnityGame(game.Game):
         str_val = json.dumps({'hexInfo': probabilities})
 
         # Don't send the message if it's too long.
-        if len(str_val) > 4081:
+        if len(str_val) > MAX_MESSAGE_LENGTH:
             return False
 
         self._connection.send_data('goaldist,' + str_val)
@@ -236,7 +237,7 @@ class UnityGame(game.Game):
         str_val = json.dumps({'hexInfo': distribution})
 
         # Don't send the message if it's too long.
-        if len(str_val) > 4081:
+        if len(str_val) > MAX_MESSAGE_LENGTH:
             return False
 
         self._connection.send_data('trajdist,' + str_val)
@@ -249,7 +250,7 @@ class UnityGame(game.Game):
         str_val = json.dumps({'hexInfo': probabilities})
 
         # Don't send the message if it's too long.
-        if len(str_val) > 4081:
+        if len(str_val) > MAX_MESSAGE_LENGTH:
             return False
 
         self._connection.send_data('obsdist,' + str_val)
@@ -262,7 +263,7 @@ class UnityGame(game.Game):
         str_val = json.dumps({'hexInfo': probabilities})
 
         # Don't send the message if it's too long.
-        if len(str_val) > 4081:
+        if len(str_val) > MAX_MESSAGE_LENGTH:
             return False
 
         self._connection.send_data('avoiddist,' + str_val)

@@ -19,3 +19,7 @@ can be used to send information to, and retrieve information from, the Unity sta
 ## Replaying recorded games
 
 `replay.py` offers an interface to replay recorded games from raw data.
+
+# Computing observability
+
+TODO: describe how to build the game so that you can compute observability (e.g., setting SCOPE to non-transparent)

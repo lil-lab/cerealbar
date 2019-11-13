@@ -180,17 +180,12 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
                              str(auxiliary.Auxiliary.INTERMEDIATE_GOALS))
 
         if auxiliary.Auxiliary.AVOID_LOCS in model.get_auxiliaries():
-            # These are all the positions where cards are except (1) the cards that should be touched and (2) the card
-            # it starts on
-            gold_positions: List[position.Position] = \
-                sorted(list(set([card.get_position() for card in example.get_initial_cards()
-                                 if card.get_position() not in
-                                 [card.get_position() for card in example.get_touched_cards(
-                                     include_start_position=True)]])))
-
-            if not full_observability:
-                # Limit the gold set to be only the cards that are visible on the board
-                gold_positions = sorted(list(set(gold_positions) & set(all_card_positions)))
+            # These are all the positions where cards are believed to be except (1) the cards that should be touched
+            # and (2) the card it starts on
+            touched_plus_initial = [card.get_position() for card in example.get_touched_cards(
+                include_start_position=True)]
+            gold_positions: List[position.Position] = sorted(list(set(
+                [card_position for card_position in all_card_positions if card_position not in touched_plus_initial])))
 
             pred_positions: List[position.Position] = \
                 sorted(list(set(get_hexes_above_threshold(auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS][0],
