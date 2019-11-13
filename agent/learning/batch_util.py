@@ -163,7 +163,7 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
                 if i < len(example.get_state_deltas()):
                     timestep_distribution = torch.from_numpy(example.get_correct_trajectory_distribution(
                         weight_trajectory_by_time,
-                        full_observability, i)).float()
+                        full_observability, example.get_partial_observations()[i])).float()
 
                     # Find the target cards visible to the agent
                     card_beliefs = example.get_partial_observations()[i].get_card_beliefs()

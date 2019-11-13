@@ -7,18 +7,18 @@ import numpy as np
 
 from agent import util
 from agent.data import gameplay_action
+from agent.data import partial_observation
 from agent.environment import agent_actions
 from agent.environment import environment_objects
+from agent.environment import state_delta
 from agent.environment import terrain
 from agent.environment import util as environment_util
 
 if TYPE_CHECKING:
     from typing import Dict, List, Optional, Set, Tuple
     from agent.data import cereal_bar_game
-    from agent.data import partial_observation
     from agent.environment import card
     from agent.environment import position
-    from agent.environment import state_delta
 
 
 class InstructionExample:
