@@ -3,7 +3,7 @@ export EXPERIMENT_NAME="test_experiment_finetuned"
 export PLAN_PREDICTOR_FILEPATH="SET THIS PARAMETER TO YOUR BEST MODEL SAVE"
 export ACTION_GENERATOR_FILEPATH="SET THIS PARAMETER TO YOUR BEST MODEL SAVE"
 
-CUDA_VISIBLE_DEVICES=0 python agent.scripts.main \
+CUDA_VISIBLE_DEVICES=0 python -m agent.scripts.main \
                   --saved_game_dir="data/" \
                   --game_state_filename="agent/preprocessed/game_states.pkl" \
                   --save_dir="agent/experiments/" \
