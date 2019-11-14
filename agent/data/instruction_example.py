@@ -88,7 +88,7 @@ class InstructionExample:
     def get_obstacle_positions(self) -> List[position.Position]:
         obstacle_positions: List[position.Position] = list()
         for ter, hexp in self.get_hexes():
-            if terrain in terrain.OBSTACLE_TERRAINS:
+            if ter in terrain.OBSTACLE_TERRAINS:
                 obstacle_positions.append(hexp)
         for obj in self.get_objects():
             assert obj.get_type() != environment_objects.ObjectType.CARD
