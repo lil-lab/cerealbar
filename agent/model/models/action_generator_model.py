@@ -7,9 +7,9 @@ Clases:
 from __future__ import annotations
 
 import copy
+import logging
 from typing import TYPE_CHECKING
 
-import logging
 import numpy as np
 import torch
 from torch import nn
@@ -359,7 +359,9 @@ class ActionGeneratorModel(nn.Module):
             visible_cards = current_observation.get_card_beliefs()
             all_card_positions = sorted(list(set([visible_card.get_position() for visible_card in visible_cards])))
             if logger.active():
-                logger.log('Action #' + str(timestep))
+                logger.log('-- #%r at position %r and rotation %r' % (
+                    timestep, current_observation.get_follower().get_position(),
+                    current_observation.get_follower().get_rotation()))
 
                 logger.log('Goal cards:')
                 for goal_card in example.get_touched_cards():
@@ -388,6 +390,7 @@ class ActionGeneratorModel(nn.Module):
                         for visible_card in visible_cards:
                             if visible_card.get_position() in predicted_positions:
                                 logger.log('\t' + str(visible_card))
+                        logger.log('')
 
                 obstacle_probabilities = None
                 if auxiliary.Auxiliary.OBSTACLES in predictions:
@@ -397,6 +400,13 @@ class ActionGeneratorModel(nn.Module):
                 if auxiliary.Auxiliary.TRAJECTORY in predictions:
                     trajectory_distribution = plan_losses.SpatialSoftmax2d()(
                         predictions[auxiliary.Auxiliary.TRAJECTORY]).squeeze()
+
+                if logger.active():
+                    for believed_card in current_observation.get_card_beliefs():
+                        card_position = believed_card.get_position()
+                        logger.log(str(believed_card) + '\t' + '{0:.2f}'.format(100. * goal_probabilities[
+                            card_position.x][card_position.y]) + '\t' + '{0:.2f}'.format(
+                            100. * avoid_probabilities[card_position.x][card_position.y]))
 
             else:
 
@@ -409,7 +419,8 @@ class ActionGeneratorModel(nn.Module):
                     observed_positions=current_observation.currently_observed_positions())).float()
 
                 goal_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
-                avoid_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
+                avoid_probabilities = torch.zeros(environment_util.ENVIRONMENT_WIDTH,
+                                                  environment_util.ENVIRONMENT_DEPTH)
                 target_cards = example.get_touched_cards()
                 for believed_card in current_observation.get_card_beliefs():
                     card_position = believed_card.get_position()
@@ -419,7 +430,8 @@ class ActionGeneratorModel(nn.Module):
                         avoid_probabilities[card_position.x][card_position.y] = 1.
 
                 # Obstacle probabilities
-                obstacle_probabilities = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
+                obstacle_probabilities = np.zeros(
+                    (environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
                 for pos in sorted(example.get_obstacle_positions()):
                     assert pos not in example.get_visited_positions()
                     obstacle_probabilities[pos.x][pos.y] = 1.
@@ -431,16 +443,10 @@ class ActionGeneratorModel(nn.Module):
             if evaluation_arguments.visualize_auxiliaries():
                 # Send the auxiliaries
                 assert isinstance(game_server, unity_game.UnityGame)
-
-                visibility = np.zeros((environment_util.ENVIRONMENT_DEPTH, environment_util.ENVIRONMENT_WIDTH))
-                for pos in current_observation.currently_observed_positions():
-                    visibility[pos.x][pos.y] = 1.
-
                 distribution_visualizer.visualize_probabilities(goal_probabilities.numpy(),
                                                                 trajectory_distribution.numpy(),
                                                                 obstacle_probabilities.numpy(),
-                                                                #avoid_probabilities.numpy(),
-                                                                visibility,
+                                                                avoid_probabilities.numpy(),
                                                                 game_server)
 
             timestep_map = self._combine_distributions(goal_probabilities, trajectory_distribution,

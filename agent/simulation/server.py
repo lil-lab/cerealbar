@@ -1,4 +1,5 @@
 """Implements a server that controls connection to a Unity standalone application."""
+import json
 import socket
 import sys
 from subprocess import Popen
@@ -83,7 +84,7 @@ class ServerSocket:
 
     def set_game_state(self, state: state_delta.StateDelta) -> None:
         """Sets the state of the board, including card and player locations and properties."""
-        self.client_socket.send(('state,' + state.to_json()).encode())
+        self.client_socket.send(('state,' + json.dumps(state.to_dict())).encode())
         self.receive_data()
 
     def send_data(self, data: str) -> None:

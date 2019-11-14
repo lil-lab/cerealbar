@@ -65,5 +65,5 @@ def visualize_probabilities(goal_probabilities: np.array,
 
     # If any of the distributions failed to send, just run the agent without waiting
     # Waits until the user has given the go ahead
-    #if g and t and o and a:
-    #    input('Press any key to continue. ')
+    if g and t and o and a:
+        input('Press any key to continue. ')
