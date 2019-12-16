@@ -21,6 +21,7 @@ Unity.
 * `num_cards`: The number of cards on the board in the game.
 All games use 21 cards.
 * `leader_id`: An anonymized Turker ID (consistently
+* `follower_id`: An anonymized Turker ID (consistently
 anonymized across all data).
 * `actions`: A list of actions taken by both players in the
 game.
@@ -121,6 +122,7 @@ the leader can give instructions.
 * `completed`: Whether the follower marked the instruction
 as completed. The last few instructions may be incomplete
 if the game ended before the follower could get to them.
+* `set_result` and `card_result` 
 
 Similar to above, the following field is stored for
 redundancy and data analysis only and will be re-computed
@@ -137,14 +139,15 @@ additional field:
 * `instruction_id`: The instruction index being marked
 as complete.
 
+It doesn't have the `turn_id` field for now.
 
 ## Preprocessed game states
 
 ## TODO
 
 - [ ] `turn_id` field for `finish command`
-- [ ] Remove fields like `card_result` and `set_result` in instruction
-- [ ] Anonymize Turker IDs
+- [x] Remove fields like `card_result`dd and `set_result` in instruction
+- [x] Anonymize Turker IDs
 - [x] Make sure that the game states file doesn't have any
 PII for turkers
 - [x] Add in the preprocessed game state pickle file
