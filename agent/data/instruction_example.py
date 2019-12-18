@@ -21,6 +21,55 @@ if TYPE_CHECKING:
     from agent.environment import position
 
 
+def get_changed_cards_along_trajectory(state_sequence: List[state_delta.StateDelta]) -> List[card.Card]:
+    unique_visitation_sequence: List[Tuple[position.Position, bool]] = list()
+    original_position: position.Position = state_sequence[0].follower.get_position()
+    original_card_positions: List[position.Position] = [original_card.get_position() for original_card in
+                                                        state_sequence[0].cards]
+    has_moved: bool = False
+
+    for i, delta in enumerate(state_sequence[1:]):
+        follower_position = delta.follower.get_position()
+        if follower_position == original_position and not has_moved:
+            continue
+        has_moved = True
+        # Only keep track of the position if it wasn't the last one it was in
+        if not unique_visitation_sequence or unique_visitation_sequence[-1][0] != follower_position:
+            # Also check the previous state information to see if there was a card in that location when it
+            # stepped there (check the previous information because otherwise this won't count cards that
+            # disappeared when the agent took a step). Also can't just check the original state because
+            # the agent could return to a location that it had removed a card from.
+
+            # this is previous because i will be starting from the 1th example.
+            unique_visitation_sequence.append(
+                (follower_position,
+                 follower_position in [state_card.get_position() for state_card in state_sequence[i].cards]))
+
+    # Filter by states where there was a card touched, and specifically if it was a card that was only in the
+    # original state (if a card appeared later, the instruction couldn't have referred to it, so it's not a
+    # required card to touch).
+    unique_card_visitations: List[position.Position] = \
+        [pos[0] for pos in unique_visitation_sequence if pos[1] and pos[0] in original_card_positions]
+
+    # Iterates through all unique positions reached which have a card, and counts how many times they have
+    # been reached.
+    card_pos_visitation_dict: Dict[position.Position, int] = \
+        {pos2: len([pos for pos in unique_card_visitations if pos == pos2])
+         for pos2 in set(unique_card_visitations)}
+
+    # Filters this by odd visitations -- meaning that the selection of the card should have changed by the end
+    # of the instruction.
+    reached_card_positions: Set[position.Position] = \
+        {pos for pos, count in card_pos_visitation_dict.items() if count % 2 == 1}
+
+    reached_cards: List[card.Card] = list()
+    for initial_card in state_sequence[0].cards:
+        if initial_card.get_position() in reached_card_positions:
+            reached_cards.append(initial_card)
+
+    return reached_cards
+
+
 class InstructionExample:
     def __init__(self,
                  instruction: List[str],
@@ -123,6 +172,9 @@ class InstructionExample:
 
         return list(set(pos_list))
 
+    def get_first_partial_observation(self) -> partial_observation.PartialObservation:
+        return self._target_action_sequence[0][2]
+
     def get_partial_observations(self) -> List[partial_observation.PartialObservation]:
         return [x[2] for x in self._target_action_sequence]
 
@@ -154,6 +206,9 @@ class InstructionExample:
 
     def get_number_of_moves_in_first_turn(self) -> int:
         return self._number_of_steps_in_first_turn
+
+    def get_number_of_instructions_when_starting(self) -> int:
+        return self._number_of_instructions_when_starting
 
     def get_final_state(self) -> state_delta.StateDelta:
         if self._target_action_sequence[-1][1] != agent_actions.AgentAction.STOP:
