@@ -4,6 +4,14 @@ This directory contains data collected between two human
 players (used for training and evaluation) and between a
 human and an agent player (results of our evaluation).
 
+## Included data
+
+`train.json`, `dev.json`, and `test.json` are the three splits comprising the official static data we used for training and evaluation.
+
+`agent_evaluation.json` contains games that were played by human leaders and human or automated followers during human evaluation.
+
+`discarded_games.json` contains games that were not included in the official static dataset.
+
 ## JSON files
 
 We use JSON files to store each interaction. Its format is
