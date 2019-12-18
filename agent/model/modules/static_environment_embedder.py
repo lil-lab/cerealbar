@@ -33,76 +33,65 @@ class StaticEnvironmentEmbedder(nn.Module):
     def __init__(self,
                  state_rep: state_representation.StateRepresentation,
                  embedding_size: int,
-                 zero_out: bool = True):
+                 zero_out: bool = False):
         super(StaticEnvironmentEmbedder, self).__init__()
 
-        self._terrain_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                        state_rep.get_terrains(),
-                                                                                        add_unk=False,
-                                                                                        zero_out=False)
+        self._state_rep: state_representation.StateRepresentation = state_rep
 
-        self._hut_colors_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                           state_rep.get_hut_colors(),
-                                                                                           add_unk=False,
-                                                                                           zero_out=zero_out)
+        if zero_out:
+            raise ValueError('Zeroing out zero-value properties is no longer supported due to optimizations.')
 
-        self._hut_rotations_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(
-            embedding_size, state_rep.get_hut_rotations(), add_unk=False, zero_out=zero_out)
-
-        self._windmill_rotations_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(
-            embedding_size, state_rep.get_windmill_rotations(), add_unk=False, zero_out=zero_out)
-
-        self._tower_rotations_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(
-            embedding_size, state_rep.get_tower_rotations(), add_unk=False, zero_out=zero_out)
-
-        self._tent_rotations_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(
-            embedding_size, state_rep.get_tent_rotations(), add_unk=False, zero_out=zero_out)
-
-        self._tree_types_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                           state_rep.get_tree_types(),
-                                                                                           add_unk=False,
-                                                                                           zero_out=zero_out)
-
-        self._plant_types_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                            state_rep.get_plant_types(),
-                                                                                            add_unk=False,
-                                                                                            zero_out=zero_out)
-
-        self._prop_types_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                           state_rep.get_prop_types(),
-                                                                                           add_unk=False,
-                                                                                           zero_out=zero_out)
-
-        self._embedders: List[word_embedder.WordEmbedder] = [self._prop_types_embedder,
-                                                             self._hut_colors_embedder,
-                                                             self._hut_rotations_embedder,
-                                                             self._tree_types_embedder,
-                                                             self._plant_types_embedder,
-                                                             self._windmill_rotations_embedder,
-                                                             self._tower_rotations_embedder,
-                                                             self._tent_rotations_embedder,
-                                                             self._terrain_embedder]
+        all_embeddings = state_rep.get_terrains() + state_rep.get_hut_colors() + state_rep.get_hut_rotations() + \
+            state_rep.get_windmill_rotations() + state_rep.get_tower_rotations() + \
+            state_rep.get_tent_rotations() + state_rep.get_tree_types() + state_rep.get_plant_types() + \
+            state_rep.get_prop_types()
+        self._embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size, all_embeddings,
+                                                                                add_unk=False, must_be_unique=False)
 
     def embedding_size(self) -> int:
         """ Returns the embedding size for a tensor coming out of the forward method. """
-        return self._embedders[0].embedding_size()
+        return self._embedder.embedding_size()
 
-    def forward(self, *args) -> torch.Tensor:
-        input_tensors: List[torch.Tensor] = list(args)
+    def forward(self, terrains, hut_colors, hut_rotations, windmill_rotations, tower_rotations, tent_rotations,
+                tree_types, plant_types, prop_types) -> torch.Tensor:
+        # TODO: Need to make this backwards compatible with old model saves.
 
-        batch_size = input_tensors[0].size(0)
+        # [1] Update the indices of each tensor to come after the previous tensors
+        prefix_length = len(self._state_rep.get_terrains())
+        hut_colors = hut_colors + prefix_length
+        prefix_length += len(self._state_rep.get_hut_colors())
+        hut_rotations = hut_rotations + prefix_length
+        prefix_length += len(self._state_rep.get_hut_rotations())
+        windmill_rotations = windmill_rotations + prefix_length
+        prefix_length += len(self._state_rep.get_windmill_rotations())
+        tower_rotations = tower_rotations + prefix_length
+        prefix_length += len(self._state_rep.get_tower_rotations())
+        tent_rotations = tent_rotations + prefix_length
+        prefix_length += len(self._state_rep.get_tent_rotations())
+        tree_types = tree_types + prefix_length
+        prefix_length += len(self._state_rep.get_tree_types())
+        plant_types = plant_types + prefix_length
+        prefix_length += len(self._state_rep.get_plant_types())
+        prop_types = prop_types + prefix_length
 
-        # First, embed the properties independently
-        embedded_tensors: List[torch.Tensor] = \
-            [batch_util.bhwc_to_bchw(embedder(tensor.view(batch_size,
-                                                          -1)).view(batch_size,
-                                                                    environment_util.ENVIRONMENT_WIDTH,
-                                                                    environment_util.ENVIRONMENT_DEPTH,
-                                                                    embedder.embedding_size()))
-             for embedder, tensor in zip(self._embedders, input_tensors)]
+        # [2] Stack the properties into a single tensor. Don't need to reshape it, because Pytorch embedding just
+        # looks up an embedding for each index in the entire tensor, regardless of its size.
+        stacked_properties = torch.stack((terrains, hut_colors, hut_rotations, windmill_rotations, tower_rotations,
+                                          tent_rotations, tree_types, plant_types, prop_types))
 
-        stacked_tensors = torch.stack(tuple(embedded_tensors))
-        permuted_tensor = stacked_tensors.permute(1, 0, 2, 3, 4)
-        emb_state = torch.sum(permuted_tensor, dim=1)
+        # [3] Embed.
+        # The output should be of size N x B x H x W x C.
+        #   N is the number of property types.
+        #   B is the batch size.
+        #   H is the height of the environment.
+        #   W is the width of the environment.
+        #   C is the embedding size.
+        all_property_embeddings = self._embedder(stacked_properties)
+
+        # Permute so it is B x N x C x H x W.
+        all_property_embeddings = all_property_embeddings.permute(1, 0, 4, 2, 3)
+
+        # Then sum across the property type dimension.
+        emb_state = torch.sum(all_property_embeddings, dim=1)
 
         return emb_state

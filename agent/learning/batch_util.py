@@ -11,7 +11,6 @@ from agent.model.modules import word_embedder
 
 if TYPE_CHECKING:
     from agent.data import instruction_example
-    from agent.data import partial_observation
     from agent.environment import position
     from agent.environment import rotation
     from agent.environment import state_delta
@@ -58,36 +57,6 @@ def batch_action_sequences(examples: List[instruction_example.InstructionExample
     action_index_tensor = action_index_tensor
 
     return action_index_tensor, action_lengths_tensor
-
-
-def get_partial_observability_distributions(example: instruction_example.InstructionExample,
-                                            current_observation: partial_observation.PartialObservation,
-                                            weight_trajectory_by_time,
-                                            environment_width, environment_depth):
-    timestep_distribution = torch.from_numpy(example.get_correct_trajectory_distribution(
-        weight_trajectory_by_time,
-        full_observability, i)).float()
-
-    # Find the target cards visible to the agent
-    card_beliefs = example.get_partial_observations()[i].get_card_beliefs()
-    target_cards = example.get_touched_cards()
-
-    for believed_card in card_beliefs:
-        card_position = believed_card.get_position()
-        # Add probability of 1 for believed target cards
-        if believed_card in target_cards:
-            example_goal_probabilities[i][card_position.x][card_position.y] = 1.
-        # And avoid probabiltiy of 1 for believed non-target cards (except the initial card if the agent
-        # is on it)
-        elif card_position != example.get_initial_state().follower.get_position():
-            example_avoid_probabilities[i][card_position.x][card_position.y] = 1.
-
-    state_mask = np.zeros((environment_width, environment_depth))
-    for viewed_position in example.get_partial_observations()[i].lifetime_observed_positions():
-        state_mask[viewed_position.x][viewed_position.y] = 1.
-
-    # Append a masked
-    example_obstacle_probabilities.append(torch.from_numpy(full_obstacle_probability * state_mask))
 
 
 def batch_map_distributions(examples: List[instruction_example.InstructionExample],

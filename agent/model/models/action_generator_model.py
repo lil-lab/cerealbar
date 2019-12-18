@@ -22,7 +22,6 @@ from agent.evaluation import distribution_visualizer
 from agent.evaluation import plan_metrics
 from agent.learning import auxiliary
 from agent.learning import batch_util
-from agent.learning import plan_losses
 from agent.learning import sampling
 from agent.model.models import plan_predictor_model
 from agent.model.modules import map_distribution_embedder
@@ -516,6 +515,7 @@ class ActionGeneratorModel(nn.Module):
         # [2] Get the rotations
         positions, rotations = batch_util.batch_agent_configurations(examples, max_action_sequence_length)
 
+        # This has eight elements so far: the four GOLD distributions, and all positions/rotations and actions.
         tensors: List[torch.Tensor] = list(batched_map_components[:-1]) + [positions,
                                                                            rotations,
                                                                            action_lengths_tensor,
@@ -528,19 +528,22 @@ class ActionGeneratorModel(nn.Module):
                           + self._plan_predictor.batch_inputs([(example, None) for example in examples], True) \
                           + [batched_map_components[-1]]
             else:
-                # The first four tensors are the same regardless of the index along the action sequence. For efficiency,
-                #   these shouldn't be duplicated.
+                # This includes all static information for every instruction.
+                #   - Instruction indices/lengths.
+                #   - Initial position/rotation of the follower.
+                #   - Static environment information, including locations of props and terrain. This MUST be masked
+                # later.
                 static_batched_tensors: List[torch.Tensor] = self._plan_predictor.batch_inputs(
-                    [(example, None) for example in examples], True, compute_dynamic_tensors=False)[:4]
+                    [(example, None) for example in examples], True, compute_dynamic_tensors=False)[:13]
 
-                # Stacked plan inputs stacks each plan predictor input:
+                # Stacks dynamic information about the environment:
                 #   - Sequence length of N is the number of types of input tensors
                 #   - Individual sequence length of M is the batch size
-                #   - First dimension of teach tensor is K_m, the action sequence length K of the mth example. This
+                #   - First dimension of each tensor is K_m, the action sequence length K of the mth example. This
                 #     should be action_lengths_tensor - 1 across all examples.
-                # This keeps track only of inputs that will change throughout the action execution (i.e., not the first
-                # four tensors returned by the plan predictor's batcher).
-                stacked_plan_inputs: List[List[torch.Tensor]] = list()
+                # This keeps track only of information that will change as the agent moves, e.g., card properties,
+                # the observability mask, and the leader's location.
+                stacked_dynamic_information: List[List[torch.Tensor]] = list()
 
                 for i, example in enumerate(examples):
                     # First dimension here is the "batch size", in this case the sequence length.
@@ -549,19 +552,21 @@ class ActionGeneratorModel(nn.Module):
                         compute_static_tensors=False)[4:]
 
                     if i == 0:
-                        stacked_plan_inputs = [[tensor] for tensor in batched_example_tensors]
+                        stacked_dynamic_information = [[tensor] for tensor in batched_example_tensors]
                     else:
-                        for j in range(len(stacked_plan_inputs)):
-                            stacked_plan_inputs[j].append(batched_example_tensors[j])
+                        for j in range(len(stacked_dynamic_information)):
+                            stacked_dynamic_information[j].append(batched_example_tensors[j])
 
-                concat_plan_inputs = list()
-                for tensor_type in stacked_plan_inputs:
-                    concat_plan_inputs.append(torch.cat(tuple(tensor_type)))
+                concat_dynamic_information = list()
+                for tensor_type in stacked_dynamic_information:
+                    concat_dynamic_information.append(torch.cat(tuple(tensor_type)))
 
                 # concat_plan_inputs is of length N, with tensors of size \sum K_m for all m examples x 25 x 25.
-                assert concat_plan_inputs[0].size(0) == torch.sum(action_lengths_tensor - 1)
+                assert concat_dynamic_information[0].size(0) == torch.sum(action_lengths_tensor - 1)
 
-                tensors = tensors + static_batched_tensors + concat_plan_inputs + [batched_map_components[-1]]
+                # Add static information (instruction, initial position/rotation, static props), dynamic information
+                # (cards, leader, observability), and card mask.
+                tensors = tensors + static_batched_tensors + concat_dynamic_information + [batched_map_components[-1]]
 
         device_tensors = []
         for tensor in tensors:
@@ -684,11 +689,11 @@ class ActionGeneratorModel(nn.Module):
                         example: instruction_example.InstructionExample,
                         game_server: game.Game,
                         evaluation_arguments: evaluation_args.EvaluationArgs,
+                        logger: evaluation_logger.EvaluationLogger,
                         goal_probabilities: torch.Tensor = None,
                         trajectory_distribution: torch.Tensor = None,
                         obstacle_probabilities: torch.Tensor = None,
-                        avoid_probabilities: torch.Tensor = None,
-                        logger: evaluation_logger.EvaluationLogger = None) -> Tuple[
+                        avoid_probabilities: torch.Tensor = None) -> Tuple[
                             List[agent_actions.AgentAction], Dict[auxiliary.Auxiliary, torch.Tensor],
                             List[state_delta.StateDelta], Optional[partial_observation.PartialObservation]]:
         """ Gets predictions for a model doing inference (i.e., not gold forcing).

@@ -16,7 +16,6 @@ from agent.learning import batch_util
 from agent.model.modules import word_embedder
 
 if TYPE_CHECKING:
-    from typing import List
     from agent.model.modules import state_representation
 
 
@@ -27,45 +26,31 @@ class DynamicEnvironmentEmbedder(nn.Module):
         state_rep: DenseStateRepresentation. Formal representation of the environment properties.
         embedding_size: int. The size of each underlying embedding.
         zero_out: bool. Whether or not to zero-out embeddings which represent absence of a property.
-        concat: bool. Whether or not to combine the various property embeddings by concatenation.
-            If False, will be combined via channelwise summation.
     """
 
     def __init__(self,
                  state_rep: state_representation.StateRepresentation,
                  embedding_size: int,
-                 zero_out: bool = True):
+                 zero_out: bool = False):
         super(DynamicEnvironmentEmbedder, self).__init__()
 
-        self._card_count_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                           state_rep.get_card_counts(),
-                                                                                           add_unk=False,
-                                                                                           zero_out=zero_out)
-        self._card_color_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                           state_rep.get_card_colors(),
-                                                                                           add_unk=False,
-                                                                                           zero_out=zero_out)
-        self._card_shape_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
-                                                                                           state_rep.get_card_shapes(),
-                                                                                           add_unk=False,
-                                                                                           zero_out=zero_out)
-        self._card_selection_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(
-            embedding_size, state_rep.get_card_selection(), add_unk=False, zero_out=zero_out)
-        self._leader_rotation_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(
-            embedding_size, state_rep.get_leader_rotation(), add_unk=False, zero_out=zero_out)
-        self._follower_rotation_embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(
-            embedding_size, state_rep.get_follower_rotation(), add_unk=False, zero_out=zero_out)
+        self._state_rep: state_representation.StateRepresentation = state_rep
 
-        self._embedders: List[word_embedder.WordEmbedder] = [self._card_count_embedder,
-                                                             self._card_color_embedder,
-                                                             self._card_shape_embedder,
-                                                             self._card_selection_embedder,
-                                                             self._leader_rotation_embedder,
-                                                             self._follower_rotation_embedder]
+        if zero_out:
+            raise ValueError('Zeroing out zero-value properties is no longer supported due to optimizations.')
+
+        # A single embedding lookup is used for all properties.
+        all_embeddings = state_rep.get_card_counts() + state_rep.get_card_colors() + state_rep.get_card_shapes() + \
+            state_rep.get_card_selection() + state_rep.get_leader_rotation() + \
+            state_rep.get_follower_rotation()
+        self._embedder: word_embedder.WordEmbedder = word_embedder.WordEmbedder(embedding_size,
+                                                                                all_embeddings,
+                                                                                add_unk=False,
+                                                                                must_be_unique=False)
 
     def embedding_size(self) -> int:
         """ Returns the size of embeddings resulting from calling the forward method. """
-        return self._embedders[0].embedding_size()
+        return self._embedder.embedding_size()
 
     def forward(self,
                 card_counts: torch.Tensor,
@@ -74,58 +59,38 @@ class DynamicEnvironmentEmbedder(nn.Module):
                 card_selections: torch.Tensor,
                 leader_rotations: torch.Tensor,
                 follower_rotations: torch.Tensor) -> torch.Tensor:
-        batch_size = card_counts.size(0)
+        # TODO: Need to make this backwards compatible with old model saves.
 
-        # First, embed the properties independently
-        emb_card_counts: torch.Tensor = \
-            batch_util.bhwc_to_bchw(self._card_count_embedder(
-                card_counts.view(batch_size, -1)).view(batch_size,
-                                                       environment_util.ENVIRONMENT_WIDTH,
-                                                       environment_util.ENVIRONMENT_DEPTH,
-                                                       self._card_count_embedder.embedding_size()))
-        emb_card_colors: torch.Tensor = \
-            batch_util.bhwc_to_bchw(self._card_color_embedder(
-                card_colors.view(batch_size, -1)).view(batch_size,
-                                                       environment_util.ENVIRONMENT_WIDTH,
-                                                       environment_util.ENVIRONMENT_DEPTH,
-                                                       self._card_color_embedder.embedding_size()))
-        emb_card_shapes: torch.Tensor = \
-            batch_util.bhwc_to_bchw(self._card_shape_embedder(
-                card_shapes.view(batch_size, -1)).view(batch_size,
-                                                       environment_util.ENVIRONMENT_WIDTH,
-                                                       environment_util.ENVIRONMENT_DEPTH,
-                                                       self._card_shape_embedder.embedding_size()))
-        emb_card_selections: torch.Tensor = \
-            batch_util.bhwc_to_bchw(self._card_selection_embedder(
-                card_selections.view(batch_size, -1)).view(batch_size,
-                                                           environment_util.ENVIRONMENT_WIDTH,
-                                                           environment_util.ENVIRONMENT_DEPTH,
-                                                           self._card_selection_embedder.embedding_size()))
-        emb_leader_rotations: torch.Tensor = \
-            batch_util.bhwc_to_bchw(self._leader_rotation_embedder(
-                leader_rotations.view(batch_size, -1)).view(batch_size,
-                                                            environment_util.ENVIRONMENT_WIDTH,
-                                                            environment_util.ENVIRONMENT_DEPTH,
-                                                            self._leader_rotation_embedder.embedding_size()))
-        emb_follower_rotations: torch.Tensor = \
-            batch_util.bhwc_to_bchw(self._follower_rotation_embedder(
-                follower_rotations.view(batch_size, -1)).view(batch_size,
-                                                              environment_util.ENVIRONMENT_WIDTH,
-                                                              environment_util.ENVIRONMENT_DEPTH,
-                                                              self._follower_rotation_embedder.embedding_size()))
+        # [1] Update the indices of each tensor to come after the previous tensors
+        prefix_length = len(self._state_rep.get_card_counts())
+        card_colors = card_colors + prefix_length
+        prefix_length += len(self._state_rep.get_card_colors())
+        card_shapes = card_shapes + prefix_length
+        prefix_length += len(self._state_rep.get_card_shapes())
+        card_selections = card_selections + prefix_length
+        prefix_length += len(self._state_rep.get_card_selection())
+        leader_rotations = leader_rotations + prefix_length
+        prefix_length += len(self._state_rep.get_leader_rotation())
+        follower_rotations = follower_rotations + prefix_length
 
-        # Each embedding will be B x C x H x W, where C is the embedding size.
-        # Stacking them gets a tensors of size N x B x C x H x W, where N is the number of embeddings.
-        stacked_tensors = torch.stack((emb_card_counts,
-                                       emb_card_colors,
-                                       emb_card_shapes,
-                                       emb_card_selections,
-                                       emb_leader_rotations,
-                                       emb_follower_rotations))
-        # Permute so it has size B x N x C x H x W
-        permuted_tensor = stacked_tensors.permute(1, 0, 2, 3, 4)
+        # [2] Stack the properties into a single tensor. Don't need to reshape it, because Pytorch embedding just
+        # looks up an embedding for each index in the entire tensor, regardless of its size.
+        stacked_properties = torch.stack((
+            card_counts, card_colors, card_shapes, card_selections, leader_rotations, follower_rotations))
 
-        # Then sum across that dimension
-        emb_state = torch.sum(permuted_tensor, dim=1)
+        # [3] Embed.
+        # The output should be of size N x B x H x W x C.
+        #   N is the number of property types.
+        #   B is the batch size.
+        #   H is the height of the environment.
+        #   W is the width of the environment.
+        #   C is the embedding size.
+        all_property_embeddings = self._embedder(stacked_properties)
+
+        # Permute so it is B x N x C x H x W.
+        all_property_embeddings = all_property_embeddings.permute(1, 0, 4, 2, 3)
+
+        # Then sum across the property type dimension.
+        emb_state = torch.sum(all_property_embeddings, dim=1)
 
         return emb_state

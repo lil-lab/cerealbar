@@ -5,6 +5,7 @@ import torch
 from torch import nn
 
 from agent import util
+from agent.environment import position
 from agent.learning import auxiliary
 from agent.learning import plan_losses
 from agent.learning import util as learning_util
@@ -15,7 +16,6 @@ if TYPE_CHECKING:
     from agent.data import aggregated_instruction_example
     from agent.data import instruction_example
     from agent.data import partial_observation
-    from agent.environment import position
     from agent.evaluation import evaluation_logger
     from agent.model.model_wrappers import model_wrapper
 

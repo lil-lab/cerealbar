@@ -168,7 +168,10 @@ class LingUNet(nn.Module):
 
     def forward(self,
                 images: torch.Tensor,
-                texts: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+                texts: torch.Tensor,
+                action_sequence_lengths: List[int] = None) -> Tuple[torch.Tensor,
+                                                                    Optional[torch.Tensor],
+                                                                    Optional[torch.Tensor]]:
         # [1] Apply the input convolutions.
         conv_outputs: List[torch.Tensor] = list()
         for i, layer in enumerate(self._convolution_layers):
@@ -208,8 +211,19 @@ class LingUNet(nn.Module):
             # Apply the text kernel. Have to do this by iterating over the batch.
             conv_output = conv_outputs[i]
             text_output: List[torch.Tensor] = list()
-            for ex_output, f in zip(conv_output, text_kernel):
-                text_output.append(nn.functional.conv2d(ex_output.unsqueeze(0), f))
+
+            if action_sequence_lengths:
+                # If action sequence lengths are provided, then conv_output has a different shape than text_kernel.
+                # Basically, the text kernels are not repeated for each instruction (with different input
+                # representations). So, need to iterate based on the actual batch rather than the "batch size" from
+                # the conv_output.
+                start_idx = 0
+                for j, length in enumerate(action_sequence_lengths):
+                    text_output.append(nn.functional.conv2d(conv_output[start_idx:start_idx + length], text_kernel[j]))
+                    start_idx += length
+            else:
+                for ex_output, f in zip(conv_output, text_kernel):
+                    text_output.append(nn.functional.conv2d(ex_output.unsqueeze(0), f))
             text_outputs = torch.cat(text_output, 0)
 
             # Apply the instance norm

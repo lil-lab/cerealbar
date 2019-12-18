@@ -48,7 +48,7 @@ def load_pretrained_parameters(filepath: str, freeze: bool = False, module: nn.M
     # The loaded parameters are an ordered dictionary.
     for name, param in torch.load(filepath, map_location=util.DEVICE).items():
         if name not in module.state_dict():
-            logging.warn('Loaded action predictor contained an unrecognized parameter: ' + name)
+            logging.warn('WARNING! !!!!!!!!! Loaded action predictor contained an unrecognized parameter: ' + name)
             continue
         if freeze:
             logging.info('Loading and freezing parameter %s', name)

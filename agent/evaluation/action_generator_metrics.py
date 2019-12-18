@@ -39,7 +39,7 @@ def cascaded_evaluation(game_arguments: game_args.GameArgs,
                                                         evaluated_game.get_hexes(),
                                                         evaluated_game.get_objects(),
                                                         evaluated_game.get_initial_state(),
-                                                        verbose=True)
+                                                        verbose=False)
 
         # Reset to the correct initial state in the game simulator.
         game_server.reset_state(leader_actions=beginning_example.get_leader_actions(limit_to_instruction=False),

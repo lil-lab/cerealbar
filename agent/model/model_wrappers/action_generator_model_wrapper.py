@@ -167,7 +167,7 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
             if self._end_to_end:
                 full_results = action_generator_metrics.execution_accuracies(
                     self, game_arguments, evaluation_arguments, game_examples=list(validation_games.values()),
-                    log=False)
+                    logger=logger)
                 print(full_results)
                 exit()
                 experiment.add_scalar_value('val prop followed', validation_followed_proportion)

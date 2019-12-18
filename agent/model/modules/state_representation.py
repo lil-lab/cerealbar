@@ -81,12 +81,6 @@ class StateRepresentation:
                 environment_objects.ObjectType.LAMPPOST,
                 environment_objects.ObjectType.TENT])
 
-        # TODO: Do we also want to have channels for (1) edges, or (2) what's currently being observed in partial
-        #   observability?
-        # Argument for currently-observed channel: Could help the model know what information being embedded is
-        # out-of-date. Although, it should already learn its scope. Embedding the age of the last observation could
-        # also be useful here.
-
     def get_args(self) -> state_representation_args.StateRepresentationArgs:
         return self._args
 
@@ -340,7 +334,7 @@ class StateRepresentation:
                 tent_rotation_tensor,
                 terrain_tensor]
 
-    def batch_partially_observable_indices(
+    def batch_partially_observable_delta_indices(
             self, examples: List[Tuple[instruction_example,
                                        partial_observation.PartialObservation]]) -> Tuple[List[torch.Tensor],
                                                                                           torch.Tensor]:
@@ -348,10 +342,7 @@ class StateRepresentation:
         batched_delta_indices = self.batch_state_delta_indices(
             [observation.get_observed_state_delta() for _, observation in examples])
 
-        # Static indices. You can use the cache here! Anything that hasn't yet been observed will be zeroed out anyway.
-        batched_static_indices = self.batch_static_indices([example for example, _ in examples])
-
-        state_masks: List[np.array] = list()
+        observability_masks: List[np.array] = list()
         for example, observation in examples:
             mask: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
 
@@ -359,8 +350,8 @@ class StateRepresentation:
             for pos in observation.lifetime_observed_positions():
                 mask[0][pos.x][pos.y] = 1.
 
-            state_masks.append(mask)
+            observability_masks.append(mask)
 
-        batched_state_mask: torch.Tensor = torch.tensor(np.stack(state_masks), dtype=torch.float32)
+        batched_observability_masks: torch.Tensor = torch.tensor(np.stack(observability_masks), dtype=torch.float32)
 
-        return batched_delta_indices + batched_static_indices, batched_state_mask
+        return batched_delta_indices, batched_observability_masks

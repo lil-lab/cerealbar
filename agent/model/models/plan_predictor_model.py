@@ -129,19 +129,33 @@ class PlanPredictorModel(nn.Module):
             input_img_size=environment_util.PADDED_WIDTH,
             layer_single_preds=auxiliary.Auxiliary.IMPLICIT in self._auxiliaries)
 
-    def _embed_environment(self, *args) -> torch.Tensor:
+    def _embed_environment(self, *args, action_sequence_lengths: List[int] = None) -> torch.Tensor:
         list_args: List[torch.Tensor] = list(args)
 
-        dynamic_args: List[torch.Tensor] = list_args[0:6]
-        static_args: List[torch.Tensor] = list_args[6:-1]
-        state_mask: torch.Tensor = list_args[-1]
+        static_args: List[torch.Tensor] = list_args[0:9]
+        dynamic_args: List[torch.Tensor] = list_args[9:15]
+        observability_mask: torch.Tensor = list_args[15]
+
+        emb_static: torch.Tensor = self._static_embedder(*static_args)
+
+        # If action_sequence_lengths is provided, all items in static_args should be of size
+        # batch_size x env_size x env_size, but all dynamic_args should be N x env_size x env_size where N is the sum
+        # of action sequence lengths for all items in the batch.
+        #
+        # After embedding it, it should be expanded to align with the dynamic_args.
+        if action_sequence_lengths:
+            expanded_static_embs = list()
+            for i, length in enumerate(action_sequence_lengths):
+                example_static_embedding = emb_static[i]
+                expanded_static_embs.append(example_static_embedding.expand(tuple([length] + list(
+                    example_static_embedding.size()))))
+            emb_static = torch.cat(tuple(expanded_static_embs))
 
         emb_delta: torch.Tensor = self._dynamic_embedder(*dynamic_args)
-        emb_static: torch.Tensor = self._static_embedder(*static_args)
 
         embedded_environment: torch.Tensor = torch.sum(torch.stack((emb_delta, emb_static)), dim=0)
 
-        masked_environment = embedded_environment * state_mask
+        masked_environment = embedded_environment * observability_mask
 
         return masked_environment
 
@@ -181,9 +195,12 @@ class PlanPredictorModel(nn.Module):
         initial_rotation_tensor = None
         initial_position_tensor = None
 
+        state_tensors = list()
         if compute_static_tensors:
             instruction_index_tensor, instruction_lengths_tensor = batch_util.batch_instructions(
                 [example[0] for example in examples], self.get_instruction_embedder())
+
+            state_tensors.extend(self._state_rep.batch_static_indices([example[0] for example in examples]))
 
             for example, _ in examples:
                 initial_state: state_delta.StateDelta = example.get_initial_state()
@@ -197,25 +214,23 @@ class PlanPredictorModel(nn.Module):
             # B
             initial_rotation_tensor: torch.Tensor = torch.stack(tuple(initial_rotations))
 
-        state_mask = None
-        state_tensors = list()
+        observability_mask = None
         if compute_dynamic_tensors:
             # Use indices to represent properties of the environment
             if self._state_rep.get_args().full_observability():
                 delta_tensors = self._state_rep.batch_state_delta_indices(
                     [example.get_initial_state() for example, _ in examples])
-                static_tensors = self._state_rep.batch_static_indices([example[0] for example in examples])
-                state_tensors = delta_tensors + static_tensors
 
                 # The mask is 1 -- no hexes are unknown.
-                state_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32).unsqueeze(1)
+                observability_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32).unsqueeze(1)
             else:
-                state_tensors, state_mask = self._state_rep.batch_partially_observable_indices(examples)
+                delta_tensors, observability_mask = self._state_rep.batch_partially_observable_delta_indices(examples)
+            state_tensors.extend(delta_tensors)
 
         tensors: List[torch.Tensor] = [instruction_index_tensor,
                                        instruction_lengths_tensor,
                                        initial_position_tensor,
-                                       initial_rotation_tensor] + state_tensors + [state_mask]
+                                       initial_rotation_tensor] + state_tensors + [observability_mask]
 
         if put_on_device:
             cuda_inputs: List[Optional[torch.Tensor]] = list()
@@ -267,7 +282,7 @@ class PlanPredictorModel(nn.Module):
 
         auxiliary_dict: Dict[auxiliary.Auxiliary, Any] = dict()
 
-        embedded_environment = self._embed_environment(*list_args[4:])
+        embedded_environment = self._embed_environment(*list_args[4:], action_sequence_lengths=action_sequence_lengths)
 
         encoded_instructions: torch.Tensor = self._instruction_encoder(batched_instructions,
                                                                        batched_instruction_lengths)
@@ -309,20 +324,15 @@ class PlanPredictorModel(nn.Module):
         if action_sequence_lengths:
             # Expand each example's instruction initial position/rotation to the length of the output sequence so all
             # inputs can be ran through the LingUNet.
-            expanded_instruction_reps = list()
             expanded_current_positions = list()
             expanded_current_rotations = list()
             for i, length in enumerate(action_sequence_lengths):
-                example_instruction_rep = instruction_rep[i]
-                expanded_instruction_reps.append(
-                    example_instruction_rep.expand(tuple([length] + list(example_instruction_rep.size()))))
                 example_current_position = current_positions[i]
                 expanded_current_positions.append(
                     example_current_position.expand(tuple([length] + list(example_current_position.size()))))
                 example_current_rotation = current_rotations[i]
                 expanded_current_rotations.append(
                     example_current_rotation.expand(tuple([length] + list(example_current_rotation.size()))))
-            instruction_rep = torch.cat(tuple(expanded_instruction_reps))
             current_positions = torch.cat(tuple(expanded_current_positions))
             current_rotations = torch.cat(tuple(expanded_current_rotations))
 
@@ -330,8 +340,10 @@ class PlanPredictorModel(nn.Module):
         transformed_state = self._into_lingunet_transformer(concat_states,
                                                             None,
                                                             pose.Pose(current_positions, current_rotations))[0]
+
         # Then apply lingunet
-        lingunet_map_preds, _, single_layer_preds = self._lingunet(transformed_state, instruction_rep)
+        lingunet_map_preds, _, single_layer_preds = self._lingunet(transformed_state, instruction_rep,
+                                                                   action_sequence_lengths)
 
         # Then transform it back
         retransformed_state = self._after_lingunet_transformer(lingunet_map_preds,
