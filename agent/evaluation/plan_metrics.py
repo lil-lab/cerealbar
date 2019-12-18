@@ -5,7 +5,10 @@ import torch
 from torch import nn
 
 from agent import util
+from agent.data import aggregated_instruction_example
+from agent.data import instruction_example
 from agent.environment import position
+from agent.evaluation import evaluation_logger
 from agent.learning import auxiliary
 from agent.learning import plan_losses
 from agent.learning import util as learning_util
@@ -13,10 +16,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional, Tuple
-    from agent.data import aggregated_instruction_example
-    from agent.data import instruction_example
     from agent.data import partial_observation
-    from agent.evaluation import evaluation_logger
     from agent.model.model_wrappers import model_wrapper
 
 
@@ -41,7 +41,7 @@ def add_trajectory_metrics(metric_results: Dict[str, Any],
                                             predicted_map_distribution,
                                             full_observability=full_observability,
                                             weight_by_time=weight_by_time,
-                                            observation=observation if full_observability else None).item())
+                                            observation=None if full_observability else observation).item())
 
 
 def get_hexes_above_threshold(map_probabilities: torch.Tensor,

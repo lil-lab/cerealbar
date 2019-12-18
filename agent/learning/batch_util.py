@@ -110,7 +110,7 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
             obstacle_probabilities.append(obstacle_probability)
 
         return (torch.stack(tuple(trajectory_distributions)).unsqueeze(1),
-                torch.stack(tuple(goal_probabilities)),
+                torch.stack(tuple(goal_probabilities)).unsqueeze(1),
                 torch.stack(tuple(obstacle_probabilities)).unsqueeze(1),
                 torch.stack(tuple(avoid_probabilities)).unsqueeze(1),
                 torch.stack(tuple(goal_masks)).unsqueeze(1))

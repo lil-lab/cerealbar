@@ -715,8 +715,7 @@ class ActionGeneratorModel(nn.Module):
         last_observation: partial_observation.PartialObservation = None
 
         if self._args.get_state_rep_args().full_observability():
-            if logger:
-                raise NotImplementedError
+            # TODO: Use logger for full observability.
 
             # If full observability, first compute the distributions, then use them to compute the action sequence.
             if trajectory_distribution is None:

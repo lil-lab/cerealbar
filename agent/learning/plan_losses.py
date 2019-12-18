@@ -63,8 +63,18 @@ def compute_trajectory_loss(example: Union[instruction_example.InstructionExampl
     gold_map = example.get_correct_trajectory_distribution(weight_by_time=weight_by_time,
                                                            full_observability=full_observability,
                                                            observation=observation)
-    return CrossEntropy2d()(predicted_map_distribution,
-                            torch.tensor(gold_map).float().unsqueeze(0).unsqueeze(0).unsqueeze(0).to(util.DEVICE))
+
+    gold_map = torch.tensor(gold_map).float()
+
+    # Need to make sure these have a batching dimension.
+    while len(gold_map.size()) != 4:
+        gold_map = gold_map.unsqueeze(0)
+    while len(predicted_map_distribution.size()) != 4:
+        predicted_map_distribution = predicted_map_distribution.unsqueeze(0)
+
+    gold_map = gold_map.to(util.DEVICE)
+
+    return CrossEntropy2d()(predicted_map_distribution, gold_map)
 
 
 def get_auxiliaries_from_args(args: training_args.TrainingArgs,
