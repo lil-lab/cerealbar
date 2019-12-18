@@ -57,9 +57,9 @@ class CrossEntropy2d(nn.Module):
 def compute_trajectory_loss(example: Union[instruction_example.InstructionExample,
                                            aggregated_instruction_example.AggregatedInstructionExample],
                             predicted_map_distribution: torch.Tensor,
-                            observation: partial_observation.PartialObservation,
                             weight_by_time: bool,
-                            full_observability: bool):
+                            full_observability: bool,
+                            observation: partial_observation.PartialObservation = None):
     gold_map = example.get_correct_trajectory_distribution(weight_by_time=weight_by_time,
                                                            full_observability=full_observability,
                                                            observation=observation)

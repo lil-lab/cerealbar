@@ -637,7 +637,7 @@ class ActionGeneratorModel(nn.Module):
                         # Pad it with zeroes if the prediction. Add one to the padding length because there needs to
                         # be an empty dimension at the end.
                         padding: torch.Tensor = torch.zeros(tuple([max(action_lengths) - action_length + 1] + list(
-                            prediction[0].size())))
+                            prediction[0].size()))).to(util.DEVICE)
                         prediction_slice = torch.cat((prediction_slice, padding))
                         start_index += action_length
 
