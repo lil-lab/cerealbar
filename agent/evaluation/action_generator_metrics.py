@@ -24,11 +24,12 @@ if TYPE_CHECKING:
     from agent.model.model_wrappers import action_generator_model_wrapper
 
 
-def sample_for_game_without_reset(game_arguments: game_args.GameArgs,
-                                  evaluation_arguments: evaluation_args.EvaluationArgs,
-                                  evaluated_game: cereal_bar_game.CerealBarGame,
-                                  model: action_generator_model_wrapper.ActionGeneratorModelWrapper,
-                                  logger: evaluation_logger.EvaluationLogger):
+def cascaded_evaluation(game_arguments: game_args.GameArgs,
+                        evaluation_arguments: evaluation_args.EvaluationArgs,
+                        evaluated_game: cereal_bar_game.CerealBarGame,
+                        model: action_generator_model_wrapper.ActionGeneratorModelWrapper,
+                        logger: evaluation_logger.EvaluationLogger):
+    logger.disable_logging()
     number_instructions_followed: List[int] = list()
     score_increases: List[float] = list()
 
@@ -61,7 +62,7 @@ def sample_for_game_without_reset(game_arguments: game_args.GameArgs,
                                                               current_partial_observation,
                                                               executed_example.get_touched_cards())
             _, _, visited_states, current_partial_observation = model.get_predictions(
-                temporary_example, game_server, evaluation_arguments, logger=logger)
+                temporary_example, game_server, evaluation_arguments, logger)
 
             expected_cards_changed: List[card.Card] = executed_example.get_touched_cards(allow_duplicates=False)
 
@@ -86,6 +87,7 @@ def sample_for_game_without_reset(game_arguments: game_args.GameArgs,
             score_increases.append(float(game_server.get_score()) / possible_points_scored)
 
     possible_num_followed = len(evaluated_game.get_examples()) * (len(evaluated_game.get_examples()) + 1) / 2
+    logger.enable_logging()
 
     return (float(np.sum(np.array(number_instructions_followed))) / possible_num_followed,
             float(np.mean(np.array(score_increases))) if score_increases else None)
@@ -94,12 +96,9 @@ def sample_for_game_without_reset(game_arguments: game_args.GameArgs,
 def execution_accuracies(model: action_generator_model_wrapper.ActionGeneratorModelWrapper,
                          game_arguments: game_args.GameArgs,
                          evaluation_arguments: evaluation_args.EvaluationArgs,
+                         logger: evaluation_logger.EvaluationLogger,
                          instruction_examples: List[instruction_example.InstructionExample] = None,
-                         game_examples: List[cereal_bar_game.CerealBarGame] = None,
-                         log: bool = True):
-
-    logger: evaluation_logger.EvaluationLogger = evaluation_logger.EvaluationLogger(
-        evaluation_arguments.get_evaluation_results_filename(), log)
+                         game_examples: List[cereal_bar_game.CerealBarGame] = None):
 
     metric_dict: Dict[metric.Metric, List[float]] = {metric.Metric.SCORE: list(),
                                                      metric.Metric.CARD_ACCURACY: list(),
@@ -170,11 +169,11 @@ def execution_accuracies(model: action_generator_model_wrapper.ActionGeneratorMo
             for num_games, evaluated_game in enumerate(game_examples):
                 pbar.update(num_games)
                 average_number_instructions_followed, average_score_increase = \
-                    sample_for_game_without_reset(game_arguments,
-                                                  evaluation_arguments,
-                                                  evaluated_game,
-                                                  model,
-                                                  logger)
+                    cascaded_evaluation(game_arguments,
+                                        evaluation_arguments,
+                                        evaluated_game,
+                                        model,
+                                        logger)
                 metric_dict[metric.Metric.PROPORTION_FOLLOWED_CASCADING].append(average_number_instructions_followed)
                 metric_dict[metric.Metric.PROPORTION_POINTS_CASCADING].append(average_score_increase)
 
@@ -185,8 +184,6 @@ def execution_accuracies(model: action_generator_model_wrapper.ActionGeneratorMo
 
             if 'ACCURACY' in str(metric_name) or metric_name == metric.Metric.PROPORTION_FOLLOWED_CASCADING:
                 means_dict[metric_name] = 100. * means_dict[metric_name]
-
-    logger.close()
 
     if evaluation_arguments.use_unity():
         game_server_socket.close()

@@ -136,10 +136,12 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                   evaluation_arguments: evaluation_args.EvaluationArgs,
                   train_accuracy_proportion: int,
                   experiment: crayon.CrayonExperiment,
-                  epoch_num: int):
+                  epoch_num: int,
+                  logger: evaluation_logger.EvaluationLogger):
         validation_followed_proportion = 0.
         validation_score_proportion = 0.
         with torch.no_grad():
+            logger.disable_logging()
             _evaluate_and_log_metrics(
                 self,
                 list(train_examples.values())[:int(len(train_examples) * train_accuracy_proportion)],
@@ -148,10 +150,10 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                 experiment,
                 'train',
                 epoch_num,
-                log=False)
+                logger)
+            logger.enable_logging()
 
-            evaluation_logger.quick_log(evaluation_arguments.get_evaluation_results_filename(),
-                                        'Epoch %d validation evaluation' % epoch_num)
+            logger.log('Epoch %d validation evaluation' % epoch_num)
 
             validation_card_state_accuracy = _evaluate_and_log_metrics(self,
                                                                        list(validation_examples.values()),
@@ -159,7 +161,8 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                                                                        evaluation_arguments,
                                                                        experiment,
                                                                        'validation',
-                                                                       epoch_num)
+                                                                       epoch_num,
+                                                                       logger)
 
             if self._end_to_end:
                 full_results = action_generator_metrics.execution_accuracies(
@@ -411,6 +414,13 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                                          'aggregated_train_examples_epoch' + str(num_epochs) + '.pkl'), 'wb') as ofile:
                         pickle.dump(new_examples, ofile)
 
+            evaluation_filename = evaluation_arguments.get_evaluation_results_filename()
+            if evaluation_filename:
+                evaluation_filename = os.path.join(training_arguments.get_save_directory(),
+                                                   evaluation_filename + '-' + str(num_epochs))
+
+            logger: evaluation_logger.EvaluationLogger = evaluation_logger.EvaluationLogger(evaluation_filename)
+
             (validation_card_state_accuracy, validation_proportion_instructions_followed,
              validation_proportion_points_scored) = \
                 self._evaluate(train_examples,
@@ -421,7 +431,8 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                                evaluation_arguments,
                                training_arguments.get_proportion_of_train_for_accuracy(),
                                experiment,
-                               num_epochs)
+                               num_epochs,
+                               logger)
 
             suffix = ''
             better = False
@@ -463,15 +474,16 @@ def _evaluate_and_log_metrics(model: ActionGeneratorModelWrapper,
                               experiment: crayon.CrayonExperiment,
                               prefix: str,
                               step: int,
-                              log: bool = True):
+                              logger: evaluation_logger.EvaluationLogger):
     # TODO: Should this include accuracy of auxiliary predictions? It's a bit harder to measure because the agent gets
     # off the gold trajectory so the labels are less well-defined.
     metric_results = action_generator_metrics.execution_accuracies(model,
                                                                    game_arguments,
                                                                    evaluation_arguments,
                                                                    instruction_examples=examples,
-                                                                   log=log)
-    print(metric_results)
+                                                                   logger=logger)
+    logger.log('Evaluation results:')
+    logger.log(str(metric_results))
 
     experiment.add_scalar_value(prefix + ' exact acc', metric_results[metric.Metric.SEQUENCE_ACCURACY], step=step)
     experiment.add_scalar_value(prefix + ' agent distance', metric_results[metric.Metric.AGENT_DISTANCE], step=step)

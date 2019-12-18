@@ -1,18 +1,23 @@
-from typing import Any, Dict, List, Optional, Tuple
+from __future__ import annotations
 
 import numpy as np
 import torch
 from torch import nn
 
 from agent import util
-from agent.data import aggregated_instruction_example
-from agent.data import instruction_example
-from agent.environment import position
-from agent.evaluation import evaluation_logger
 from agent.learning import auxiliary
 from agent.learning import plan_losses
 from agent.learning import util as learning_util
-from agent.model.model_wrappers import model_wrapper
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, List, Optional, Tuple
+    from agent.data import aggregated_instruction_example
+    from agent.data import instruction_example
+    from agent.data import partial_observation
+    from agent.environment import position
+    from agent.evaluation import evaluation_logger
+    from agent.model.model_wrappers import model_wrapper
 
 
 def normalize_trajectory_distribution(map_distribution: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -24,24 +29,19 @@ def normalize_trajectory_distribution(map_distribution: torch.Tensor) -> Tuple[t
 
 def add_trajectory_metrics(metric_results: Dict[str, Any],
                            example: instruction_example.InstructionExample,
-                           action_index: int,
                            predicted_map_distribution: torch.Tensor,
                            full_observability: bool,
-                           weight_by_time: bool) -> None:
+                           weight_by_time: bool,
+                           observation: partial_observation.PartialObservation) -> None:
     """
     Computes and adds metrics for trajectory cross-entropy.
-    :param metric_results: The dictionary to add the results to.
-    :param example: The example to get the gold trajectory for.
-    :param action_index: The index of the action to compute trajectory cross-entropy for.
-    :param predicted_map_distribution: The predicted distribution over maps.
-    :param weight_by_time: Whether points along the trajectory should be weighted by the time the agent spent in them.
     """
     metric_results[str(auxiliary.Auxiliary.TRAJECTORY) + ' xent'].append(
         plan_losses.compute_trajectory_loss(example,
                                             predicted_map_distribution,
-                                            action_index,
                                             full_observability=full_observability,
-                                            weight_by_time=weight_by_time).item())
+                                            weight_by_time=weight_by_time,
+                                            observation=observation if full_observability else None).item())
 
 
 def get_hexes_above_threshold(map_probabilities: torch.Tensor,
@@ -198,10 +198,10 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
         if auxiliary.Auxiliary.TRAJECTORY in model.get_auxiliaries():
             add_trajectory_metrics(metric_results,
                                    example,
-                                   example.get_partial_observations()[action_index],
                                    auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY],
                                    full_observability,
-                                   model.get_arguments().get_decoder_args().weight_trajectory_by_time())
+                                   model.get_arguments().get_decoder_args().weight_trajectory_by_time(),
+                                   example.get_partial_observations()[action_index])
 
         if auxiliary.Auxiliary.OBSTACLES in model.get_auxiliaries():
             gold_positions: List[position.Position] = sorted(list(set(example.get_obstacle_positions())))
