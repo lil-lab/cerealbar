@@ -43,7 +43,9 @@ from a player client, the server first processes it by
  to the other player client (i.e., this is the soonest
  action time we can record.) See below for discussion of
 accuracy.
-* `game_time`: The number of seconds since the game began.
+* `game_time`: For our dataset, this is the number of seconds since the game
+began. For agent evaluation games, this is a time sent by the client during
+gameplay.
 * `turn_id`: The index of the turn in which the action was
 taken. The value may be `-1` for actions taken before the
 game started (e.g., the action describing the starting
@@ -61,8 +63,8 @@ Type `movement` actions have the following additional
 fields. The first two `movement` actions only show the 
 initial position of both players.
 
-* `character`: The player taking the action, either `Agent` 
-or `Human`.
+* `character`: The player taking the action, either `Leader` 
+or `Follower`.
 * `action`: The movement taken, which is one of `initial` 
 (for the first movement), `MF` (move forward), `RR` (rotate
 right), `RL` (rotate left), `MB` (move backward).
@@ -91,12 +93,12 @@ which is `true` or `false`; `new_score`, which is the new
 game score if `made_set` is `true`, and `new_cards`, which is
 a list of new card properties (number, color, and shape) if
 `made_set` is `true`.
-* `resulting_position`: The position of the agent
+* `resulting_position`: The position of the player
 after executing the action.
-* `reuslting_rotation`: The rotation of the agent
+* `reuslting_rotation`: The rotation of the player 
 after executing the action.
 * `instruction_id`: The index of the instruction that this
-movement is aligned with.
+movement is aligned with (for follower actions).
 
 
 ### Turn actions
@@ -104,7 +106,7 @@ movement is aligned with.
 has ended or begun their turn. It has one extra field:
 
 * `character`: The player beginning or ending the turn, 
-either `Agent` or `Human`.
+either `Leader` or `Follower`.
 * The `end_turn` action has an extra field `end_method`
 indicating how the player ended their turn, e.g.,
 `Ran Out of Moves` or `game ended`.
