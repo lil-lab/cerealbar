@@ -337,7 +337,8 @@ class ActionGeneratorModel(nn.Module):
             self, example: instruction_example.InstructionExample, game_server: game.Game,
             evaluation_arguments: evaluation_args.EvaluationArgs,
             logger: evaluation_logger.EvaluationLogger) -> Tuple[List[agent_actions.AgentAction],
-                                                                 List[state_delta.StateDelta]]:
+                                                                 List[state_delta.StateDelta],
+                                                                 partial_observation.PartialObservation]:
         if self._end_to_end and not self._plan_predictor:
             raise ValueError('Action predictor must have a plan predictor if evaluating end-to-end.')
 
@@ -351,7 +352,7 @@ class ActionGeneratorModel(nn.Module):
 
         resulting_game_state = copy.deepcopy(game_server.get_game_info())
         visited_states: List[state_delta.StateDelta] = [resulting_game_state]
-        current_observation = example.get_partial_observations()[0]
+        current_observation: partial_observation.PartialObservation = example.get_first_partial_observation()
 
         while (timestep < evaluation_arguments.get_maximum_generation_length() or
                evaluation_arguments.get_maximum_generation_length() < 0) and not stopped:
@@ -370,7 +371,6 @@ class ActionGeneratorModel(nn.Module):
 
             # Compute the updated timestep map given the most recent partial observation.
             if self._plan_predictor:
-
                 # Call the plan predictor.
                 predictions = self._plan_predictor.get_predictions(example, current_observation)
 
@@ -398,7 +398,7 @@ class ActionGeneratorModel(nn.Module):
 
                 trajectory_distribution = None
                 if auxiliary.Auxiliary.TRAJECTORY in predictions:
-                    trajectory_distribution = plan_losses.SpatialSoftmax2d()(
+                    trajectory_distribution = plan_metrics.normalize_trajectory_distribution(
                         predictions[auxiliary.Auxiliary.TRAJECTORY]).squeeze()
 
                 if logger.active():
@@ -469,7 +469,7 @@ class ActionGeneratorModel(nn.Module):
 
             timestep += 1
 
-        return action_sequence[1:], visited_states
+        return action_sequence[1:], visited_states, current_observation
 
     def load(self, save_file: str) -> None:
         """ Loads model parameters from a specified filename.
@@ -494,9 +494,6 @@ class ActionGeneratorModel(nn.Module):
             examples: List[Example]. The examples to batch.
         """
         # INPUT BATCHING PREPARATION
-        instruction_index_tensor = None
-        instruction_lengths_tensor = None
-
         action_lengths_tensor: torch.Tensor = None
         action_index_tensor: torch.Tensor = None
 
@@ -522,16 +519,49 @@ class ActionGeneratorModel(nn.Module):
         tensors: List[torch.Tensor] = list(batched_map_components[:-1]) + [positions,
                                                                            rotations,
                                                                            action_lengths_tensor,
-                                                                           action_index_tensor,
-                                                                           instruction_lengths_tensor,
-                                                                           instruction_index_tensor]
+                                                                           action_index_tensor]
 
         # [3] If the model is end to end, also batch the environment information.
         if self._end_to_end:
-            # TODO: this is just taking the first state for each example.
-            tensors = tensors \
-                      + self._plan_predictor.batch_inputs([(example, 0) for example in examples], True) \
-                      + [batched_map_components[-1]]
+            if self._args.get_state_rep_args().full_observability():
+                tensors = tensors \
+                          + self._plan_predictor.batch_inputs([(example, None) for example in examples], True) \
+                          + [batched_map_components[-1]]
+            else:
+                # The first four tensors are the same regardless of the index along the action sequence. For efficiency,
+                #   these shouldn't be duplicated.
+                static_batched_tensors: List[torch.Tensor] = self._plan_predictor.batch_inputs(
+                    [(example, None) for example in examples], True, compute_dynamic_tensors=False)[:4]
+
+                # Stacked plan inputs stacks each plan predictor input:
+                #   - Sequence length of N is the number of types of input tensors
+                #   - Individual sequence length of M is the batch size
+                #   - First dimension of teach tensor is K_m, the action sequence length K of the mth example. This
+                #     should be action_lengths_tensor - 1 across all examples.
+                # This keeps track only of inputs that will change throughout the action execution (i.e., not the first
+                # four tensors returned by the plan predictor's batcher).
+                stacked_plan_inputs: List[List[torch.Tensor]] = list()
+
+                for i, example in enumerate(examples):
+                    # First dimension here is the "batch size", in this case the sequence length.
+                    batched_example_tensors: List[torch.Tensor] = self._plan_predictor.batch_inputs(
+                        [(example, observation) for observation in example.get_partial_observations()], True,
+                        compute_static_tensors=False)[4:]
+
+                    if i == 0:
+                        stacked_plan_inputs = [[tensor] for tensor in batched_example_tensors]
+                    else:
+                        for j in range(len(stacked_plan_inputs)):
+                            stacked_plan_inputs[j].append(batched_example_tensors[j])
+
+                concat_plan_inputs = list()
+                for tensor_type in stacked_plan_inputs:
+                    concat_plan_inputs.append(torch.cat(tuple(tensor_type)))
+
+                # concat_plan_inputs is of length N, with tensors of size \sum K_m for all m examples x 25 x 25.
+                assert concat_plan_inputs[0].size(0) == torch.sum(action_lengths_tensor - 1)
+
+                tensors = tensors + static_batched_tensors + concat_plan_inputs + [batched_map_components[-1]]
 
         device_tensors = []
         for tensor in tensors:
@@ -561,12 +591,23 @@ class ActionGeneratorModel(nn.Module):
             # Predict card and trajectory distributions (and any other auxiliaries) using the hex predictor
             card_mask: torch.Tensor = args[-1]
 
-            auxiliary_predictions = self._plan_predictor(*args[11:-1])
+            action_lengths = None
+
+            # If partial observability, need to stack things so the forward pass on the plan predictor is efficient.
+            if not self._args.get_state_rep_args().full_observability():
+                # Subtract 1 because these are one extra due to the START token.
+                action_lengths = (args[6] - 1).tolist()
+                new_card_mask = list()
+                for i, length in enumerate(action_lengths):
+                    new_card_mask.append(card_mask[i][0:length])
+                card_mask = torch.cat(tuple(new_card_mask)).unsqueeze(1)
+
+            auxiliary_predictions = self._plan_predictor(*args[8:-1], action_sequence_lengths=action_lengths)
 
             # Card distributions should be put through a sigmoid and masked.
             goal_probabilities = None
             if auxiliary.Auxiliary.FINAL_GOALS in auxiliary_predictions:
-                goal_probabilities = torch.sigmoid(auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS]) * card_mask
+                goal_probabilities = torch.sigmoid(auxiliary_predictions[auxiliary.Auxiliary.FINAL_GOALS]) * card_mask
 
             avoid_probabilities = None
             if auxiliary.Auxiliary.AVOID_LOCS in auxiliary_predictions:
@@ -580,9 +621,32 @@ class ActionGeneratorModel(nn.Module):
                     auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY])
 
             obstacle_probabilities = None
-            if auxiliary.Auxiliary.IMPASSABLE_LOCS in auxiliary_predictions:
+            if auxiliary.Auxiliary.OBSTACLES in auxiliary_predictions:
                 # Need to put this through a sigmoid.
                 obstacle_probabilities = torch.sigmoid(auxiliary_predictions[auxiliary.Auxiliary.OBSTACLES])
+
+            # Need to reshape the inputs to the next part of the model so that it is back to batch x seq_len x ...
+            if action_lengths:
+                def reshape_and_pad(prediction: torch.Tensor):
+                    # prediction is sum of K_m x ...
+                    new_tensor: List[torch.Tensor] = list()
+                    start_index: int = 0
+                    for action_length in action_lengths:
+                        prediction_slice: torch.Tensor = prediction[start_index:start_index + action_length]
+
+                        # Pad it with zeroes if the prediction. Add one to the padding length because there needs to
+                        # be an empty dimension at the end.
+                        padding: torch.Tensor = torch.zeros(tuple([max(action_lengths) - action_length + 1] + list(
+                            prediction[0].size())))
+                        prediction_slice = torch.cat((prediction_slice, padding))
+                        start_index += action_length
+
+                        new_tensor.append(prediction_slice)
+                    return torch.cat(tuple(new_tensor), 1).permute(1, 0, 2, 3).contiguous()
+                goal_probabilities = reshape_and_pad(goal_probabilities)
+                avoid_probabilities = reshape_and_pad(avoid_probabilities)
+                trajectory_distributions = reshape_and_pad(trajectory_distributions)
+                obstacle_probabilities = reshape_and_pad(obstacle_probabilities)
 
         else:
             # Using the gold distributions
@@ -599,6 +663,13 @@ class ActionGeneratorModel(nn.Module):
                                                                    args[5])  # rotation
 
         if self._args.get_decoder_args().use_recurrence():
+            # The last element (sequence-wise) for action_embeddings and embedded_state don't matter -- this is the
+            # embedding of the STOP token and the last environment state (the same as second to last because STOP
+            # results in the same environment state). Loss is not computed over the final output of the RNN.
+            #
+            # In other words, the ith item represents the embedding of the token generated in step i-1 and
+            # the embedding of the world state at time i.
+
             action_embeddings: torch.Tensor = self._action_embedder(args[7])  # action indices
 
             # args[7] is action lengths
@@ -617,10 +688,9 @@ class ActionGeneratorModel(nn.Module):
                         trajectory_distribution: torch.Tensor = None,
                         obstacle_probabilities: torch.Tensor = None,
                         avoid_probabilities: torch.Tensor = None,
-                        logger: evaluation_logger.EvaluationLogger = None) -> Tuple[List[agent_actions.AgentAction],
-                                                                                    Dict[auxiliary.Auxiliary,
-                                                                                         torch.Tensor],
-                                                                                    List[state_delta.StateDelta]]:
+                        logger: evaluation_logger.EvaluationLogger = None) -> Tuple[
+                            List[agent_actions.AgentAction], Dict[auxiliary.Auxiliary, torch.Tensor],
+                            List[state_delta.StateDelta], Optional[partial_observation.PartialObservation]]:
         """ Gets predictions for a model doing inference (i.e., not gold forcing).
 
         Arguments:
@@ -633,13 +703,11 @@ class ActionGeneratorModel(nn.Module):
             avoid_probabilities: torch.Tensor. An optional distribution over locations to avoid.
             logger: evaluation_logger.EvaluationLogger. A logger for logging evaluation results.
         """
-
-        # TODO: This is assuming starting in the correct start state for this instruction
-
         if evaluation_arguments is None:
             raise ValueError('Evaluation arguments must be passed if providing a game server.')
 
         auxiliary_predictions: Dict[auxiliary.Auxiliary, Any] = dict()
+        last_observation: partial_observation.PartialObservation = None
 
         if self._args.get_state_rep_args().full_observability():
             if logger:
@@ -649,31 +717,6 @@ class ActionGeneratorModel(nn.Module):
             if trajectory_distribution is None:
                 if self._end_to_end:
                     raise NotImplementedError
-                    # Outputs of this should be masked if necessary.
-                    goal_probabilities, auxiliary_predictions = self._hex_predictor.get_predictions(example)
-
-                    avoid_probabilities = None
-                    if auxiliary.Auxiliary.AVOID_LOCS in auxiliary_predictions:
-                        # This has already gone through sigmoid (and mask if masked).
-                        avoid_probabilities = auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS].unsqueeze(1)
-
-                    # These need to be normalized -- hex_predictor does not return normalized trajectories.
-                    trajectory_distribution = None
-                    if auxiliary.Auxiliary.TRAJECTORY in auxiliary_predictions:
-                        trajectory_distribution, time_vector = \
-                            normalize_trajectory_distribution(
-                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0],
-                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1].unsqueeze(0)
-                                if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else None)
-
-                    # These are already masked and put through a sigmoid.
-                    if goal_probabilities is not None:
-                        auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS] = goal_probabilities.squeeze()
-
-                    obstacle_probabilities = None
-                    if self._args.get_decoder_args().use_impassable_locations():
-                        # This is already put through a sigmoid.
-                        obstacle_probabilities = auxiliary_predictions[auxiliary.Auxiliary.IMPASSABLE_LOCS].unsqueeze(1)
                 else:
                     (trajectory_distribution,
                      goal_probabilities,
@@ -688,11 +731,6 @@ class ActionGeneratorModel(nn.Module):
                 if not isinstance(game_server, unity_game.UnityGame):
                     raise ValueError('Can only visualize auxiliaries with a Unity game.')
 
-                hex_inference.visualize_probabilities(goal_probabilities.numpy()[0],
-                                                      trajectory_distribution.numpy()[0][0],
-                                                      obstacle_probabilities.numpy()[0][0],
-                                                      avoid_probabilities.numpy()[0][0], game_server)
-
             action_sequence, visited_states = self._predict_actions_full_observability(
                 goal_probabilities.squeeze(),
                 trajectory_distribution.squeeze(),
@@ -703,8 +741,7 @@ class ActionGeneratorModel(nn.Module):
 
         else:
             # If partial observability, need to recompute distributions at each step.
-            action_sequence, visited_states = self._predict_actions_partial_observability(example, game_server,
-                                                                                          evaluation_arguments,
-                                                                                          logger)
+            action_sequence, visited_states, last_observation = self._predict_actions_partial_observability(
+                example, game_server, evaluation_arguments, logger)
 
-        return action_sequence, auxiliary_predictions, visited_states
+        return action_sequence, auxiliary_predictions, visited_states, last_observation

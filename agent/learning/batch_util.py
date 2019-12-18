@@ -41,6 +41,7 @@ def bhwc_to_bchw(tensor: torch.Tensor) -> torch.Tensor:
 
 def batch_action_sequences(examples: List[instruction_example.InstructionExample],
                            action_embedder: word_embedder.WordEmbedder) -> Tuple[torch.Tensor, torch.Tensor]:
+
     action_sequence_lengths: List[int] = [len(example.get_action_sequence()) + 1 for example in examples]
     max_action_length: int = max(action_sequence_lengths)
 
@@ -99,6 +100,7 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
                                                                           torch.Tensor,
                                                                           torch.Tensor,
                                                                           torch.Tensor]:
+    # TODO: This can be more efficient if it's not padded
     trajectory_distributions: List[torch.Tensor] = []
     goal_probabilities: List[torch.Tensor] = []
     goal_masks: List[torch.Tensor] = []
@@ -150,6 +152,7 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
 
             example_goal_probabilities = torch.zeros(max_action_sequence_length, environment_width, environment_depth)
             example_avoid_probabilities = torch.zeros(max_action_sequence_length, environment_width, environment_depth)
+            example_goal_masks = torch.zeros(max_action_sequence_length, environment_width, environment_depth)
 
             full_obstacle_probability = np.zeros((environment_width, environment_depth))
             for pos in sorted(example.get_obstacle_positions()):
@@ -179,6 +182,8 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
                         elif card_position != example.get_initial_state().follower.get_position():
                             example_avoid_probabilities[i][card_position.x][card_position.y] = 1.
 
+                        example_goal_masks[i][card_position.x][card_position.y] = 1.
+
                     for viewed_position in example.get_partial_observations()[i].lifetime_observed_positions():
                         state_mask[viewed_position.x][viewed_position.y] = 1.
 
@@ -193,17 +198,18 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
             goal_probabilities.append(example_goal_probabilities)
             avoid_probabilities.append(example_avoid_probabilities)
             obstacle_probabilities.append(torch.stack(tuple(example_obstacle_probabilities)))
+            goal_masks.append(torch.stack(tuple(example_goal_masks)))
 
-            # TODO: Goal masks (only relevant for end-to-end training)
         return (torch.stack(tuple(trajectory_distributions)).squeeze().float(),
                 torch.stack(tuple(goal_probabilities)).float(),
                 torch.stack(tuple(obstacle_probabilities)).float(),
                 torch.stack(tuple(avoid_probabilities)).float(),
-                None)
+                torch.stack(tuple(goal_masks)).float())
 
 
 def batch_agent_configurations(examples: List[instruction_example.InstructionExample],
                                max_action_length: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    # TODO: This can be more efficient if it's not padded
     positions: List[torch.Tensor] = []
     rotations: List[torch.Tensor] = []
 

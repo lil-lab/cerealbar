@@ -6,12 +6,12 @@ import torch
 from torch import nn
 
 from agent import util
+from agent.data import aggregated_instruction_example
 from agent.environment import util as environment_util
 from agent.learning import auxiliary
 
 if TYPE_CHECKING:
     from agent.config import training_args
-    from agent.data import aggregated_instruction_example
     from agent.data import instruction_example
     from agent.data import partial_observation
     from typing import Any, Dict, List, Union
@@ -220,6 +220,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                                        torch.stack(tuple(avoid_labels)).to(util.DEVICE)))
 
     if auxiliary.Auxiliary.IMPLICIT in auxiliaries:
+        raise ValueError('Need to verify the loss computation for this.')
         if auxiliary.Auxiliary.IMPLICIT not in auxiliary_losses:
             auxiliary_losses[auxiliary.Auxiliary.IMPLICIT] = list()
 
@@ -228,13 +229,14 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
         implicit_value: float = (1. if
                                  isinstance(example, aggregated_instruction_example.AggregatedInstructionExample) and
                                  example.implicit() else 0.)
+        label_tensor = torch.tensor(
+            [implicit_value for _ in range(auxiliary_dict[auxiliary.Auxiliary.IMPLICIT].size(1))])
 
         # Label is all 1s if the example is aggregated, otherwise it's all zeros.
         avg_layer_implicit_loss = \
             nn.BCEWithLogitsLoss()(
                 auxiliary_dict[auxiliary.Auxiliary.IMPLICIT][example_idx],
-                torch.tensor([implicit_value for _ in range(auxiliary_dict[auxiliary.Auxiliary.IMPLICIT].size(1))]).to(
-                    util.DEVICE))
+                label_tensor.to(util.DEVICE))
         auxiliary_losses[auxiliary.Auxiliary.IMPLICIT].append(avg_layer_implicit_loss)
 
     # Then the trajectory loss
@@ -243,7 +245,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
             auxiliary_losses[auxiliary.Auxiliary.TRAJECTORY] = list()
         auxiliary_losses[auxiliary.Auxiliary.TRAJECTORY].append(
             compute_trajectory_loss(example,
-                                    auxiliary_dict[auxiliary.Auxiliary.TRAJECTORY][0][example_idx].unsqueeze(0),
+                                    auxiliary_dict[auxiliary.Auxiliary.TRAJECTORY][example_idx].unsqueeze(0),
                                     observation,
                                     traj_weight_by_time,
                                     full_observability))

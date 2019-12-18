@@ -150,32 +150,26 @@ class PlanPredictorModel(nn.Module):
 
     def batch_inputs(self,
                      examples: List[Tuple[instruction_example.InstructionExample,
-                                          partial_observation.PartialObservation]],
-                     put_on_device: bool = False) -> List[torch.Tensor]:
+                                          Optional[partial_observation.PartialObservation]]],
+                     put_on_device: bool = False,
+                     compute_static_tensors: bool = True,
+                     compute_dynamic_tensors: bool = True) -> List[torch.Tensor]:
         """ Batches inputs for the hex predictor model into a list of tensors.
 
         Arguments:
             examples: List[instruction_example.InstructionExample]. The examples to batch.
             put_on_device: bool. Whether to put the batched tensors on a device.
+            compute_static_tensors: bool. Whether to compute static tensors (related to the instruction and initial
+            agent configuration). If False, these tensors will be None.
+            compute_dynamic_tensors: bool. Whether to compute dynamic tensors (related to state information and
+            visibility). It False, these tensors will be None or not exist in the output.
 
         Returns:
             List[torch.Tensor], representing an ordered list of batched inputs to the network.
         """
         # INPUT BATCHING PREPARATION
-        instruction_index_tensor, instruction_lengths_tensor = batch_util.batch_instructions(
-            [example[0] for example in examples], self.get_instruction_embedder())
-
-        # Use indices to represent properties of the environment
-        if self._state_rep.get_args().full_observability():
-            delta_tensors = self._state_rep.batch_state_delta_indices(
-                [example.get_state_deltas()[i] for example, i in examples])
-            static_tensors = self._state_rep.batch_static_indices([example[0] for example in examples])
-            state_tensors = delta_tensors + static_tensors
-
-            # The mask is 1 -- no hexes are unknown.
-            state_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32).unsqueeze(1)
-        else:
-            state_tensors, state_mask = self._state_rep.batch_partially_observable_indices(examples)
+        instruction_index_tensor = None
+        instruction_lengths_tensor = None
 
         # These are initial rotations and positions because LingUNet is always rotated to the initial position
         # of the agent so that the instruction makes sense.
@@ -184,17 +178,39 @@ class PlanPredictorModel(nn.Module):
         initial_positions: List[torch.Tensor] = []
         initial_rotations: List[torch.Tensor] = []
 
-        for example, _ in examples:
-            initial_state: state_delta.StateDelta = example.get_initial_state()
-            initial_follower: agent.Agent = initial_state.follower
-            initial_position: position.Position = initial_follower.get_position()
-            initial_positions.append(torch.tensor([float(initial_position.x), float(initial_position.y)]))
-            initial_rotations.append(torch.tensor(initial_follower.get_rotation().to_radians()))
+        initial_rotation_tensor = None
+        initial_position_tensor = None
 
-        # B x 2
-        initial_position_tensor: torch.Tensor = torch.stack(tuple(initial_positions))
-        # B
-        initial_rotation_tensor: torch.Tensor = torch.stack(tuple(initial_rotations))
+        if compute_static_tensors:
+            instruction_index_tensor, instruction_lengths_tensor = batch_util.batch_instructions(
+                [example[0] for example in examples], self.get_instruction_embedder())
+
+            for example, _ in examples:
+                initial_state: state_delta.StateDelta = example.get_initial_state()
+                initial_follower: agent.Agent = initial_state.follower
+                initial_position: position.Position = initial_follower.get_position()
+                initial_positions.append(torch.tensor([float(initial_position.x), float(initial_position.y)]))
+                initial_rotations.append(torch.tensor(initial_follower.get_rotation().to_radians()))
+
+            # B x 2
+            initial_position_tensor: torch.Tensor = torch.stack(tuple(initial_positions))
+            # B
+            initial_rotation_tensor: torch.Tensor = torch.stack(tuple(initial_rotations))
+
+        state_mask = None
+        state_tensors = list()
+        if compute_dynamic_tensors:
+            # Use indices to represent properties of the environment
+            if self._state_rep.get_args().full_observability():
+                delta_tensors = self._state_rep.batch_state_delta_indices(
+                    [example.get_initial_state() for example, _ in examples])
+                static_tensors = self._state_rep.batch_static_indices([example[0] for example in examples])
+                state_tensors = delta_tensors + static_tensors
+
+                # The mask is 1 -- no hexes are unknown.
+                state_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32).unsqueeze(1)
+            else:
+                state_tensors, state_mask = self._state_rep.batch_partially_observable_indices(examples)
 
         tensors: List[torch.Tensor] = [instruction_index_tensor,
                                        instruction_lengths_tensor,
@@ -228,7 +244,7 @@ class PlanPredictorModel(nn.Module):
         """
         torch.save(self.state_dict(), save_file)
 
-    def forward(self, *args) -> Dict[auxiliary.Auxiliary, Any]:
+    def forward(self, *args, action_sequence_lengths: List[int] = None) -> Dict[auxiliary.Auxiliary, Any]:
         """ Forward pass for the CardPredictorModel.
 
         B = batch size
@@ -262,29 +278,60 @@ class PlanPredictorModel(nn.Module):
         # Do the lingunet.LingUNet prediction
         text_kernel_shape = (batch_size, self._grounding_map_channels, self._env_feature_channels, 1, 1)
         text_kernels = self._initial_text_kernel_ll(instruction_rep).view(text_kernel_shape)
+
         initial_text_outputs: List[torch.Tensor] = []
-        for emb_env, text_kernel in zip(embedded_environment, text_kernels):
-            initial_text_outputs.append(nn.functional.conv2d(emb_env.unsqueeze(0), text_kernel))
+        if action_sequence_lengths:
+            start = 0
+            for i, length in enumerate(action_sequence_lengths):
+                environment_segment = embedded_environment[start:start + length]
+                initial_text_outputs.append(nn.functional.conv2d(environment_segment,
+                                                                 text_kernels[i]))
+
+                start += length
+        else:
+            for emb_env, text_kernel in zip(embedded_environment, text_kernels):
+                initial_text_outputs.append(nn.functional.conv2d(emb_env.unsqueeze(0), text_kernel))
         initial_text_outputs: torch.Tensor = torch.cat(tuple(initial_text_outputs), dim=0)
 
         # Predict the intermediate cards if this is one of the auxiliaries.
         if auxiliary.Auxiliary.INTERMEDIATE_GOALS in self._auxiliaries:
             initial_text_outputs = initial_text_outputs.permute(0, 2, 3, 1).contiguous()
             flattened_text_outputs = initial_text_outputs.view(
-                batch_size * environment_util.ENVIRONMENT_WIDTH * environment_util.ENVIRONMENT_DEPTH, -1)
+                initial_text_outputs.size(0) * environment_util.ENVIRONMENT_WIDTH * environment_util.ENVIRONMENT_DEPTH,
+                -1)
             auxiliary_dict[auxiliary.Auxiliary.INTERMEDIATE_GOALS] = self._intermediate_goal_ll(
                 flattened_text_outputs).view(
-                batch_size, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
+                initial_text_outputs.size(0), environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH)
             initial_text_outputs = initial_text_outputs.permute(0, 3, 1, 2)
 
         concat_states = torch.cat((embedded_environment, initial_text_outputs), dim=1)
+
+        if action_sequence_lengths:
+            # Expand each example's instruction initial position/rotation to the length of the output sequence so all
+            # inputs can be ran through the LingUNet.
+            expanded_instruction_reps = list()
+            expanded_current_positions = list()
+            expanded_current_rotations = list()
+            for i, length in enumerate(action_sequence_lengths):
+                example_instruction_rep = instruction_rep[i]
+                expanded_instruction_reps.append(
+                    example_instruction_rep.expand(tuple([length] + list(example_instruction_rep.size()))))
+                example_current_position = current_positions[i]
+                expanded_current_positions.append(
+                    example_current_position.expand(tuple([length] + list(example_current_position.size()))))
+                example_current_rotation = current_rotations[i]
+                expanded_current_rotations.append(
+                    example_current_rotation.expand(tuple([length] + list(example_current_rotation.size()))))
+            instruction_rep = torch.cat(tuple(expanded_instruction_reps))
+            current_positions = torch.cat(tuple(expanded_current_positions))
+            current_rotations = torch.cat(tuple(expanded_current_rotations))
 
         # Transform it the first time
         transformed_state = self._into_lingunet_transformer(concat_states,
                                                             None,
                                                             pose.Pose(current_positions, current_rotations))[0]
         # Then apply lingunet
-        lingunet_map_preds, lingunet_time_preds, single_layer_preds = self._lingunet(transformed_state, instruction_rep)
+        lingunet_map_preds, _, single_layer_preds = self._lingunet(transformed_state, instruction_rep)
 
         # Then transform it back
         retransformed_state = self._after_lingunet_transformer(lingunet_map_preds,
@@ -301,9 +348,8 @@ class PlanPredictorModel(nn.Module):
             auxiliary_dict[auxiliary.Auxiliary.IMPLICIT] = single_layer_preds
 
         if auxiliary.Auxiliary.TRAJECTORY in self._auxiliaries:
-            auxiliary_dict[auxiliary.Auxiliary.TRAJECTORY] = (
-                retransformed_state[:, channel_idx:channel_idx + 1, :, :],
-                lingunet_time_preds)
+            auxiliary_dict[auxiliary.Auxiliary.TRAJECTORY] = \
+                retransformed_state[:, channel_idx:channel_idx + 1, :, :]
             channel_idx += 1
         if auxiliary.Auxiliary.OBSTACLES in self._auxiliaries:
             auxiliary_dict[auxiliary.Auxiliary.OBSTACLES] = \
@@ -361,7 +407,7 @@ class PlanPredictorModel(nn.Module):
 
         if auxiliary.Auxiliary.TRAJECTORY in self._auxiliaries:
             auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY] = \
-                (auxiliary_scores[auxiliary.Auxiliary.TRAJECTORY][0])
+                auxiliary_scores[auxiliary.Auxiliary.TRAJECTORY][0]
 
         if auxiliary.Auxiliary.OBSTACLES in self._auxiliaries:
             # Not masked, because all hexes could be impassable, but put through a sigmoid.

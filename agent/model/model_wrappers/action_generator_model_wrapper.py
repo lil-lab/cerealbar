@@ -13,7 +13,9 @@ from torch import nn
 from agent import util
 from agent.data import dataset_split
 from agent.environment import agent_actions
+from agent.evaluation import evaluation_logger
 from agent.evaluation import action_generator_metrics, metric
+from agent.evaluation import plan_metrics
 from agent.learning import auxiliary
 from agent.learning import batch_loss
 from agent.learning import plan_losses
@@ -38,6 +40,7 @@ MAXIMUM_NUM_END_TO_END_EPOCHS = 25
 class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
     def __init__(self,
                  model_arguments: model_args.ModelArgs,
+                 training_arguments: training_args.TrainingArgs,
                  vocabulary: List[str],
                  logger: crayon.CrayonExperiment,
                  load_pretrained: bool = True,
@@ -47,7 +50,9 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
         self._end_to_end = end_to_end or model_arguments.get_decoder_args().end_to_end()
 
         if self._end_to_end:
-            raise ValueError('End-to-end training is not cleaned yet!')
+            self._auxiliaries = plan_losses.get_auxiliaries_from_args(training_arguments, True)
+            for name, coeff in self._auxiliaries.items():
+                logging.info('Auxiliary ' + str(name) + ' has coefficient ' + str(coeff))
         else:
             self._auxiliaries = dict()
 
@@ -59,6 +64,15 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
 
     def get_auxiliaries(self):
         return self._auxiliaries
+
+    def evaluate_auxiliaries(self,
+                             examples: Dict[str, instruction_example.InstructionExample],
+                             prefix: str,
+                             experiment: crayon.CrayonExperiment):
+        train_results_dict: Dict[str, Any] = \
+            plan_metrics.plan_metric_results(self, examples)
+        for name, float_value in train_results_dict.items():
+            experiment.add_scalar_value(prefix + ' ' + str(name), float_value)
 
     def state_dict(self):
         return self._model.state_dict()
@@ -78,6 +92,7 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
 
         # Scores are size B x E x E, where E is the environment width/depth.
         losses: List[torch.Tensor] = []
+        observation_index = 0
         for i, example in enumerate(examples):
             for j, action in enumerate(example.get_action_sequence()):
                 step_scores = token_neglogprobs[i][j]
@@ -86,10 +101,18 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                 losses.append(action_score)
 
             if self._end_to_end:
-                plan_losses.compute_per_example_auxiliary_losses(
-                    example, i, auxiliaries, list(self._auxiliaries), auxiliary_losses,
-                    self._args.get_decoder_args().weight_trajectory_by_time(),
-                    self._args.get_state_rep_args().full_observability())
+                if self.get_arguments().get_state_rep_args().full_observability():
+                    plan_losses.compute_per_example_auxiliary_losses(
+                        example, i, auxiliaries, list(self._auxiliaries), auxiliary_losses,
+                        self._args.get_decoder_args().weight_trajectory_by_time(), True)
+                else:
+                    # Go through all the observations and make sure the predictions for each were correct.
+                    # The final average will be over all observations equally (i.e., not reweighted by sequence length)
+                    for observation in example.get_partial_observations():
+                        plan_losses.compute_per_example_auxiliary_losses(
+                            example, observation_index, auxiliaries, list(self._auxiliaries.keys()), auxiliary_losses,
+                            self._args.get_decoder_args().weight_trajectory_by_time(), False, observation)
+                        observation_index += 1
 
         for auxiliary_name in self._auxiliaries:
             auxiliary_losses[auxiliary_name] = torch.mean(torch.stack(tuple(auxiliary_losses[auxiliary_name])))
@@ -103,58 +126,49 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
         else:
             self._model.load_pretrained_plan_predictor(filepath, vocabulary, auxiliaries)
 
-    def _eval(self,
-              train_examples: Dict[str, instruction_example.InstructionExample],
-              validation_examples: Dict[str, instruction_example.InstructionExample],
-              first_epoch_aggregated_training: Dict[str, aggregated_instruction_example.AggregatedInstructionExample],
-              validation_games: Dict[str, cereal_bar_game.CerealBarGame],
-              game_arguments: game_args.GameArgs,
-              evaluation_arguments: evaluation_args.EvaluationArgs,
-              train_accuracy_proportion: int,
-              experiment: crayon.CrayonExperiment,
-              epoch_num: int):
-        val_follow_prop = 0.
-        val_score_prop = 0.
+    def _evaluate(self,
+                  train_examples: Dict[str, instruction_example.InstructionExample],
+                  validation_examples: Dict[str, instruction_example.InstructionExample],
+                  first_epoch_aggregated_training: Dict[str,
+                                                        aggregated_instruction_example.AggregatedInstructionExample],
+                  validation_games: Dict[str, cereal_bar_game.CerealBarGame],
+                  game_arguments: game_args.GameArgs,
+                  evaluation_arguments: evaluation_args.EvaluationArgs,
+                  train_accuracy_proportion: int,
+                  experiment: crayon.CrayonExperiment,
+                  epoch_num: int):
+        validation_followed_proportion = 0.
+        validation_score_proportion = 0.
         with torch.no_grad():
-            _eval_and_log_metrics(
+            _evaluate_and_log_metrics(
                 self,
                 list(train_examples.values())[:int(len(train_examples) * train_accuracy_proportion)],
                 game_arguments,
                 evaluation_arguments,
                 experiment,
                 'train',
-                epoch_num)
+                epoch_num,
+                log=False)
 
-            validation_card_state_accuracy = _eval_and_log_metrics(self,
-                                                                   list(validation_examples.values()),
-                                                                   game_arguments,
-                                                                   evaluation_arguments,
-                                                                   experiment,
-                                                                   'validation',
-                                                                   epoch_num)
+            evaluation_logger.quick_log(evaluation_arguments.get_evaluation_results_filename(),
+                                        'Epoch %d validation evaluation' % epoch_num)
+
+            validation_card_state_accuracy = _evaluate_and_log_metrics(self,
+                                                                       list(validation_examples.values()),
+                                                                       game_arguments,
+                                                                       evaluation_arguments,
+                                                                       experiment,
+                                                                       'validation',
+                                                                       epoch_num)
 
             if self._end_to_end:
-                raise ValueError('End-to-end evaluation not yet supported.')
-                prop_followed = []
-                prop_score = []
-                with get_progressbar('running full game inference', len(validation_games)) as pbar:
-                    num_games = 0
-                    for game_id, game in validation_games.items():
-                        pbar.update(num_games)
-                        avg_num_followed, avg_valid_states, avg_score_increase, _, _ = \
-                            sample_for_game_no_reset(game_arguments,
-                                                     evaluation_arguments,
-                                                     game,
-                                                     self)
-                        prop_followed.append(avg_num_followed)
-
-                        if avg_score_increase is not None:
-                            prop_score.append(avg_score_increase)
-                        num_games += 1
-                val_follow_prop = np.mean(np.array(prop_followed))
-                val_score_prop = np.mean(np.array(prop_score))
-                experiment.add_scalar_value('val prop followed', val_follow_prop)
-                experiment.add_scalar_value('val prop score', val_score_prop)
+                full_results = action_generator_metrics.execution_accuracies(
+                    self, game_arguments, evaluation_arguments, game_examples=list(validation_games.values()),
+                    log=False)
+                print(full_results)
+                exit()
+                experiment.add_scalar_value('val prop followed', validation_followed_proportion)
+                experiment.add_scalar_value('val prop score', validation_score_proportion)
 
                 if first_epoch_aggregated_training:
                     eval_and_log_metrics(self,
@@ -166,7 +180,7 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                                          "agg train epoch 0",
                                          epoch_num)
 
-        return validation_card_state_accuracy, val_follow_prop, val_score_prop
+        return validation_card_state_accuracy, validation_followed_proportion, validation_score_proportion
 
     def _train_epoch(self,
                      epoch_idx: int,
@@ -305,9 +319,6 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                    training_arguments: training_args.TrainingArgs,
                    experiment: crayon.CrayonExperiment) -> str:
 
-        if evaluation_arguments.get_evaluation_results_filename():
-            raise NotImplementedError
-
         train_examples: Dict[str, instruction_example.InstructionExample] = dataset.get_examples(
             dataset_split.DatasetSplit.UPDATE)
         validation_examples: Dict[str, instruction_example.InstructionExample] = dataset.get_examples(
@@ -402,15 +413,15 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
 
             (validation_card_state_accuracy, validation_proportion_instructions_followed,
              validation_proportion_points_scored) = \
-                self._eval(train_examples,
-                           validation_examples,
-                           aggregated_train_examples[0] if aggregated_train_examples else None,
-                           validation_games,
-                           game_arguments,
-                           evaluation_arguments,
-                           training_arguments.get_proportion_of_train_for_accuracy(),
-                           experiment,
-                           num_epochs)
+                self._evaluate(train_examples,
+                               validation_examples,
+                               aggregated_train_examples[0] if aggregated_train_examples else None,
+                               validation_games,
+                               game_arguments,
+                               evaluation_arguments,
+                               training_arguments.get_proportion_of_train_for_accuracy(),
+                               experiment,
+                               num_epochs)
 
             suffix = ''
             better = False
@@ -445,24 +456,22 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
         return best_filename
 
 
-def _eval_and_log_metrics(model: ActionGeneratorModelWrapper,
-                          examples: List[instruction_example.InstructionExample],
-                          game_arguments: game_args.GameArgs,
-                          evaluation_arguments: evaluation_args.EvaluationArgs,
-                          experiment: crayon.CrayonExperiment,
-                          prefix: str,
-                          step: int):
+def _evaluate_and_log_metrics(model: ActionGeneratorModelWrapper,
+                              examples: List[instruction_example.InstructionExample],
+                              game_arguments: game_args.GameArgs,
+                              evaluation_arguments: evaluation_args.EvaluationArgs,
+                              experiment: crayon.CrayonExperiment,
+                              prefix: str,
+                              step: int,
+                              log: bool = True):
+    # TODO: Should this include accuracy of auxiliary predictions? It's a bit harder to measure because the agent gets
+    # off the gold trajectory so the labels are less well-defined.
     metric_results = action_generator_metrics.execution_accuracies(model,
                                                                    game_arguments,
                                                                    evaluation_arguments,
-                                                                   instruction_examples=examples)
-
-    if model.get_auxiliaries():
-        raise ValueError('Action generator models with auxiliaries not yet supported.')
-        model.eval_auxiliaries(examples,
-                               auxiliary_predictions,
-                               prefix,
-                               experiment)
+                                                                   instruction_examples=examples,
+                                                                   log=log)
+    print(metric_results)
 
     experiment.add_scalar_value(prefix + ' exact acc', metric_results[metric.Metric.SEQUENCE_ACCURACY], step=step)
     experiment.add_scalar_value(prefix + ' agent distance', metric_results[metric.Metric.AGENT_DISTANCE], step=step)

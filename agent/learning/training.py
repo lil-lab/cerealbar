@@ -1,12 +1,12 @@
 """Functions for training an agent."""
+from __future__ import annotations
 import logging
-from typing import List
+
+from typing import TYPE_CHECKING
 
 import pycrayon
 
-from agent.config import model_args
 from agent.config import program_args
-from agent.config import training_args
 from agent.data import dataset_split
 from agent.data import game_dataset
 from agent.data import loading
@@ -14,6 +14,13 @@ from agent.evaluation import action_generator_metrics, plan_metrics
 from agent.learning import util
 from agent.model.model_wrappers import action_generator_model_wrapper
 from agent.model.model_wrappers import create_model_wrapper
+
+if TYPE_CHECKING:
+    from typing import List
+    from agent.config import model_args
+    from agent.config import training_args
+    from agent.model.model_wrappers import model_wrapper
+
 
 SLACK_CHANNEL: str = ''
 
@@ -61,12 +68,10 @@ def train(args: program_args.ProgramArgs) -> None:
 
     if args.get_model_args().get_decoder_args().pretrained_plan_predictor():
         # Load the vocabulary if the plan predictor was pretrianed.
-        raise ValueError('Training using a pretrained plan predictor is not yet supported.')
-        logging.info('Loading vocabulary from ')
         vocab_file: str = \
             '/'.join(args.get_model_args().get_decoder_args().pretrained_plan_predictor_filepath().split('/')[:-1])
-        vocabulary = \
-            load_vocabulary(vocab_file)
+        logging.info('Loading vocabulary from ' + vocab_file)
+        vocabulary = loading.load_vocabulary(vocab_file)
     else:
         # Otherwise, create and save the vocabulary.
         vocabulary: List[str] = dataset.get_instruction_vocabulary()
@@ -74,7 +79,7 @@ def train(args: program_args.ProgramArgs) -> None:
 
     logging.info('Vocabulary contains ' + str(len(vocabulary)) + ' word types')
 
-    model: ModelWrapper = create_model_wrapper.get_model_wrapper(
+    model: model_wrapper.ModelWrapper = create_model_wrapper.get_model_wrapper(
         args.get_model_args(), training_arguments, vocabulary,
         load_pretrained=args.get_model_args().get_decoder_args().end_to_end())
     logging.info('Created model:')

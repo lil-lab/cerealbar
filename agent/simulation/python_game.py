@@ -80,9 +80,9 @@ class PythonGame(game.Game):
                     current_card.update_selection(card.CardSelection.SELECTED)
                     self._selected_cards.append(current_card)
                 else:
-                    current_card.update_selection(card.CardSelection.UNSELECTED)
                     if current_card not in self._selected_cards:
                         raise ValueError('Card ' + str(current_card) + ' is selected but not in selected cards set!')
+                    current_card.update_selection(card.CardSelection.UNSELECTED)
                     self._selected_cards.remove(current_card)
                 changed_card = True
 
@@ -133,6 +133,27 @@ class PythonGame(game.Game):
 
         if action in {agent_actions.AgentAction.MB, agent_actions.AgentAction.MF}:
             self._update_card_with_move(new_position)
+
+    def reset_state(self,
+                    leader_actions: List[List[gameplay_action.GameplayAction]],
+                    state: state_delta.StateDelta,
+                    num_steps_remaining: int,
+                    expected_sets: List[Tuple[List[card.Card], List[card.Card]]],
+                    allow_exceptions: bool = False,
+                    num_instructions: int = 1,
+                    expected_states: List[List[card.Card]] = None) -> None:
+        super(PythonGame, self).reset_state(leader_actions,
+                                            state,
+                                            num_steps_remaining,
+                                            expected_sets,
+                                            num_instructions,
+                                            expected_states=expected_states)
+
+        # Reset the selected cards
+        self._selected_cards: List[card.Card] = []
+        for current_card in self._current_state_delta.cards:
+            if current_card.get_selection() != card.CardSelection.UNSELECTED:
+                self._selected_cards.append(current_card)
 
     def send_command(self, command: str):
         pass

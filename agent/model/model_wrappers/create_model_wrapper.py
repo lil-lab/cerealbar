@@ -20,7 +20,9 @@ def get_model_wrapper(model_arguments: model_args.ModelArgs,
     if task == model_args.Task.PLAN_PREDICTOR:
         return plan_predictor_wrapper.PlanPredictorWrapper(model_arguments, training_arguments, vocabulary, logger)
     elif task == model_args.Task.ACTION_GENERATOR:
-        return action_generator_model_wrapper.ActionGeneratorModelWrapper(model_arguments, vocabulary, logger,
+        return action_generator_model_wrapper.ActionGeneratorModelWrapper(model_arguments,
+                                                                          training_arguments,
+                                                                          vocabulary, logger,
                                                                           load_pretrained)
     elif task == model_args.Task.SEQ2SEQ:
         return Seq2SeqModelWrapper(model_arguments, vocabulary, logger)
