@@ -246,9 +246,9 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
         auxiliary_losses[auxiliary.Auxiliary.TRAJECTORY].append(
             compute_trajectory_loss(example,
                                     auxiliary_dict[auxiliary.Auxiliary.TRAJECTORY][example_idx].unsqueeze(0),
-                                    observation,
                                     traj_weight_by_time,
-                                    full_observability))
+                                    full_observability,
+                                    observation))
 
     # Obstacle loss
     if auxiliary.Auxiliary.OBSTACLES in auxiliaries:
