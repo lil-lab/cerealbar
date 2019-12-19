@@ -74,7 +74,8 @@ class MovementAction(GameplayAction):
     def __init__(self, json_object: Dict[str, Any]):
         super(MovementAction, self).__init__(json_object['time'])
 
-        self._agent: environment_objects.ObjectType = environment_objects.ObjectType.LEADER if json_object['character'] == 'Human' else environment_objects.ObjectType.FOLLOWER
+        self._agent: environment_objects.ObjectType = environment_objects.ObjectType.LEADER if \
+            json_object['character'] == 'Leader' else environment_objects.ObjectType.FOLLOWER
         self._action: agent_actions.AgentAction = agent_actions.AgentAction(json_object['action'])
 
         self._card_result = json_object['card_result']
@@ -139,7 +140,8 @@ class EndTurnAction(GameplayAction):
         super(EndTurnAction, self).__init__(json_object['time'])
         self._turn_index: int = json_object['turn_id']
         self._end_method: str = json_object['end_method']
-        self._agent: environment_objects.ObjectType = environment_objects.ObjectType.LEADER if json_object['character'] == 'Human' else environment_objects.ObjectType.FOLLOWER
+        self._agent: environment_objects.ObjectType = environment_objects.ObjectType.LEADER if \
+            json_object['character'] == 'Leader' else environment_objects.ObjectType.FOLLOWER
 
     def get_agent(self) -> environment_objects.ObjectType:
         return self._agent

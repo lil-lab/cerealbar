@@ -335,9 +335,9 @@ class StateRepresentation:
                 terrain_tensor]
 
     def batch_partially_observable_delta_indices(
-            self, examples: List[Tuple[instruction_example,
-                                       partial_observation.PartialObservation]]) -> Tuple[List[torch.Tensor],
-                                                                                          torch.Tensor]:
+            self,
+            examples: List[Tuple[instruction_example, partial_observation.PartialObservation]],
+            maximum_observation_age: int) -> Tuple[List[torch.Tensor], torch.Tensor]:
         # Delta indices. Just grab the observation at this index.
         batched_delta_indices = self.batch_state_delta_indices(
             [observation.get_observed_state_delta() for _, observation in examples])
@@ -347,7 +347,7 @@ class StateRepresentation:
             mask: np.array = np.zeros((1, environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
 
             # Set the mask to 1 for all locations that have been observed (OK to use static state information)
-            for pos in observation.lifetime_observed_positions():
+            for pos in observation.lifetime_observed_positions(maximum_observation_age):
                 mask[0][pos.x][pos.y] = 1.
 
             observability_masks.append(mask)
