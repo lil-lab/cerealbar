@@ -259,7 +259,6 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                                     traj_weight_by_time,
                                     full_observability,
                                     observation))
-        print(auxiliary_losses[auxiliary.Auxiliary.TRAJECTORY][-1])
 
     # Obstacle loss
     if auxiliary.Auxiliary.OBSTACLES in auxiliaries:
