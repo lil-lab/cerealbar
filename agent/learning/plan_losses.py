@@ -27,14 +27,16 @@ class SpatialSoftmax2d(nn.Module):
             self.softmax = nn.Softmax(dim=1)
 
     def forward(self, images):
-        batch_size = images.size(0)
-        num_channels = images.size(1)
-        height = images.size(2)
-        width = images.size(3)
+        # No channel dimension.
 
-        images = images.view([batch_size * num_channels, width * height])
+        batch_size = images.size(0)
+        height = images.size(1)
+        width = images.size(2)
+
+        images = images.view([batch_size, width * height])
+
         img_out = self.softmax(images)
-        img_out = img_out.view([batch_size, num_channels, height, width])
+        img_out = img_out.view([batch_size, height, width])
 
         return img_out
 
@@ -48,8 +50,8 @@ class CrossEntropy2d(nn.Module):
     def forward(self, pred, labels):
         x = - labels * self._logsoftmax(pred)
         # Sum over spatial dimensions:
-        x = x.sum(2).sum(2)
-        # Average over channels and batches
+        x = x.sum(1).sum(1)
+        # Average over batches
         loss = torch.mean(x)
         return loss
 
@@ -64,13 +66,11 @@ def compute_trajectory_loss(example: Union[instruction_example.InstructionExampl
                                                            full_observability=full_observability,
                                                            observation=observation)
 
-    gold_map = torch.tensor(gold_map).float()
-
-    # Need to make sure these have a batching dimension.
-    while len(gold_map.size()) != 4:
-        gold_map = gold_map.unsqueeze(0)
-    while len(predicted_map_distribution.size()) != 4:
-        predicted_map_distribution = predicted_map_distribution.unsqueeze(0)
+    gold_map = torch.tensor(gold_map).float().view(1,
+                                                   environment_util.ENVIRONMENT_WIDTH,
+                                                   environment_util.ENVIRONMENT_DEPTH)
+    predicted_map_distribution = predicted_map_distribution.view(1, environment_util.ENVIRONMENT_WIDTH,
+                                                                 environment_util.ENVIRONMENT_DEPTH)
 
     gold_map = gold_map.to(util.DEVICE)
 
@@ -259,6 +259,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                                     traj_weight_by_time,
                                     full_observability,
                                     observation))
+        print(auxiliary_losses[auxiliary.Auxiliary.TRAJECTORY][-1])
 
     # Obstacle loss
     if auxiliary.Auxiliary.OBSTACLES in auxiliaries:
