@@ -62,6 +62,7 @@ def compute_trajectory_loss(example: Union[instruction_example.InstructionExampl
                             weight_by_time: bool,
                             full_observability: bool,
                             observation: partial_observation.PartialObservation = None):
+    # TODO: Should not be computing loss over the unobserved positions
     gold_map = example.get_correct_trajectory_distribution(weight_by_time=weight_by_time,
                                                            full_observability=full_observability,
                                                            observation=observation)
@@ -116,7 +117,8 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                                          auxiliary_losses: Dict[auxiliary.Auxiliary, List[torch.Tensor]],
                                          traj_weight_by_time: bool,
                                          full_observability: bool,
-                                         observation: partial_observation.PartialObservation = None):
+                                         observation: partial_observation.PartialObservation = None,
+                                         maximum_observation_age: int = -1):
     intermediate_goal_scores: List[torch.Tensor] = list()
     avoid_scores: List[torch.Tensor] = list()
     final_goal_scores: List[torch.Tensor] = list()
@@ -158,6 +160,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                     avoid_labels.append(torch.tensor(1.))
     else:
         # Only compute loss over cards that are believed to exist. Other cards are impossible to predict.
+        # TODO: This is not masked out wrt. an age limit on observations
         for card in observation.get_card_beliefs():
             position = card.get_position()
 
@@ -206,6 +209,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                     avoid_labels.append(torch.tensor(1.))
 
     # To compute the loss, flatten everything first
+    # TODO: Make sure loss is not being computed over the masked-out parts
     if final_reach_labels:
         combined_labels = torch.stack(tuple(final_reach_labels)).to(util.DEVICE)
 
@@ -222,6 +226,7 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
                 nn.BCEWithLogitsLoss()(torch.stack(tuple(final_goal_scores)), combined_labels))
 
     if avoid_labels:
+        # TODO: Make sure loss is not being computed over the masked-out parts
         if auxiliary.Auxiliary.AVOID_LOCS in auxiliaries:
             if auxiliary.Auxiliary.AVOID_LOCS not in auxiliary_losses:
                 auxiliary_losses[auxiliary.Auxiliary.AVOID_LOCS] = list()
@@ -275,9 +280,10 @@ def compute_per_example_auxiliary_losses(example: Union[instruction_example.Inst
             if not full_observability:
                 # Mask the predictions and labels so they are both zero on pixels that are not observed (loss will be
                 # zero)
+                # TODO: Is this the right way to max? It should not be included in the mean at all.
                 state_mask = torch.zeros((environment_util.ENVIRONMENT_WIDTH,
                                           environment_util.ENVIRONMENT_DEPTH)).float()
-                for position in observation.lifetime_observed_positions():
+                for position in observation.lifetime_observed_positions(maximum_observation_age):
                     state_mask[position.x][position.y] = 1.
                 state_mask = state_mask.to(util.DEVICE)
                 impassable_label = impassable_label.to(util.DEVICE)

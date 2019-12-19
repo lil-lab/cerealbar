@@ -64,12 +64,12 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
                             environment_depth: int,
                             weight_trajectory_by_time: bool,
                             full_observability: bool = True,
-                            max_action_sequence_length: int = 0) -> Tuple[torch.Tensor,
-                                                                          torch.Tensor,
-                                                                          torch.Tensor,
-                                                                          torch.Tensor,
-                                                                          torch.Tensor]:
-    # TODO: This can be more efficient if it's not padded
+                            max_action_sequence_length: int = 0,
+                            maximum_observation_age: int = -1) -> Tuple[torch.Tensor,
+                                                                        torch.Tensor,
+                                                                        torch.Tensor,
+                                                                        torch.Tensor,
+                                                                        torch.Tensor]:
     trajectory_distributions: List[torch.Tensor] = []
     goal_probabilities: List[torch.Tensor] = []
     goal_masks: List[torch.Tensor] = []
@@ -153,7 +153,8 @@ def batch_map_distributions(examples: List[instruction_example.InstructionExampl
 
                         example_goal_masks[i][card_position.x][card_position.y] = 1.
 
-                    for viewed_position in example.get_partial_observations()[i].lifetime_observed_positions():
+                    for viewed_position in example.get_partial_observations()[i].lifetime_observed_positions(
+                            maximum_observation_age):
                         state_mask[viewed_position.x][viewed_position.y] = 1.
 
                     example_obstacle_probabilities.append(torch.from_numpy(full_obstacle_probability * state_mask))

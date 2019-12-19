@@ -86,6 +86,7 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
     logger: evaluation_logger.EvaluationLogger = evaluation_logger.EvaluationLogger(logging_filename)
 
     full_observability: bool = model.get_arguments().get_state_rep_args().full_observability()
+    maximum_observation_age: int = model.get_arguments().get_state_rep_args().get_observation_memory_size()
     evaluation_ids = instruction_example.get_example_action_index_pairs(
         examples, full_observability,
         model.get_arguments().get_state_rep_args().observability_refresh_rate())
@@ -212,10 +213,10 @@ def plan_metric_results(model: model_wrapper.ModelWrapper,
                 # Limit the gold and predicted positions only to the visible positions.
                 gold_positions = sorted(list(set(gold_positions)
                                              & example.get_partial_observations()[
-                                                 action_index].lifetime_observed_positions()))
+                                                 action_index].lifetime_observed_positions(maximum_observation_age)))
                 pred_positions = sorted(list(set(pred_positions)
                                              & example.get_partial_observations()[
-                                                 action_index].lifetime_observed_positions()))
+                                                 action_index].lifetime_observed_positions(maximum_observation_age)))
 
             acc, prec, recall = learning_util.evaluate_set_precision_recall(pred_positions, gold_positions)
             metric_results[str(auxiliary.Auxiliary.OBSTACLES) + ' accuracy'].append(acc)

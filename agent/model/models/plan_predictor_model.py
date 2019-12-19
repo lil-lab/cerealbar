@@ -224,7 +224,8 @@ class PlanPredictorModel(nn.Module):
                 # The mask is 1 -- no hexes are unknown.
                 observability_mask = torch.ones(state_tensors[0].size(), dtype=torch.float32).unsqueeze(1)
             else:
-                delta_tensors, observability_mask = self._state_rep.batch_partially_observable_delta_indices(examples)
+                delta_tensors, observability_mask = self._state_rep.batch_partially_observable_delta_indices(
+                    examples, self._args.get_state_rep_args().get_observation_memory_size())
             state_tensors.extend(delta_tensors)
 
         tensors: List[torch.Tensor] = [instruction_index_tensor,

@@ -370,6 +370,7 @@ class ActionGeneratorModel(nn.Module):
 
             # Compute the updated timestep map given the most recent partial observation.
             if self._plan_predictor:
+                # TODO: everything needs to go through the mask before being passed to the rest of the model.
                 # Call the plan predictor.
                 predictions = self._plan_predictor.get_predictions(example, current_observation)
 
@@ -412,6 +413,7 @@ class ActionGeneratorModel(nn.Module):
                 # Note: when training with gold distribution inputs, if the agent gets off the path,
                 # the old path distribution isn't useful whereas when training end-to-end it should be updated wrt. the
                 # agent's current path distribution.
+                # TODO: Everything needs to go through the mask
                 trajectory_distribution = torch.tensor(example.get_correct_trajectory_distribution(
                     self._args.get_decoder_args().weight_trajectory_by_time(),
                     full_observability=False,
@@ -435,7 +437,8 @@ class ActionGeneratorModel(nn.Module):
                     assert pos not in example.get_visited_positions()
                     obstacle_probabilities[pos.x][pos.y] = 1.
                 state_mask = np.zeros((environment_util.ENVIRONMENT_WIDTH, environment_util.ENVIRONMENT_DEPTH))
-                for viewed_position in current_observation.lifetime_observed_positions():
+                for viewed_position in current_observation.lifetime_observed_positions(
+                        self._args.get_state_rep_args().get_observation_memory_size()):
                     state_mask[viewed_position.x][viewed_position.y] = 1.
                 obstacle_probabilities = torch.tensor(obstacle_probabilities * state_mask).float()
 
@@ -510,7 +513,8 @@ class ActionGeneratorModel(nn.Module):
                                                environment_util.ENVIRONMENT_DEPTH,
                                                self._args.get_decoder_args().weight_trajectory_by_time(),
                                                self._args.get_state_rep_args().full_observability(),
-                                               max_action_sequence_length)
+                                               max_action_sequence_length,
+                                               self._args.get_state_rep_args().get_observation_memory_size())
 
         # [2] Get the rotations
         positions, rotations = batch_util.batch_agent_configurations(examples, max_action_sequence_length)
