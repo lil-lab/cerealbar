@@ -182,7 +182,7 @@ def execution_accuracies(model: action_generator_model_wrapper.ActionGeneratorMo
         if values:
             means_dict[metric_name] = np.mean(np.array(values)).item()
 
-            if 'ACCURACY' in str(metric_name) or metric_name == metric.Metric.PROPORTION_FOLLOWED_CASCADING:
+            if 'ACCURACY' in str(metric_name) or 'PROPORTION' in str(metric_name):
                 means_dict[metric_name] = 100. * means_dict[metric_name]
 
     if evaluation_arguments.use_unity():
