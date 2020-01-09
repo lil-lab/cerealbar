@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-export EXPERIMENT_NAME="test_experiment_finetuned"
-export PLAN_PREDICTOR_FILEPATH="agent/experiments/fixed_plan_predictor/model_16_bestacc.pt"
-export ACTION_GENERATOR_FILEPATH="agent/experiments/fixed_action_generator_partial_observability/model_12_card.pt"
+export EXPERIMENT_NAME="finetuned"
+export PLAN_PREDICTOR_FILEPATH="agent/experiments/plan_predictor/best_save.pt"
+export ACTION_GENERATOR_FILEPATH="agent/experiments/action_generator/best_save.pt"
 
 CUDA_VISIBLE_DEVICES=0 python -m agent.scripts.main \
                   --saved_game_dir="data/" \
@@ -13,7 +13,7 @@ CUDA_VISIBLE_DEVICES=0 python -m agent.scripts.main \
                   --aggregate_examples=False \
                   --maximum_generation_length=25 \
                   --generate_new_cards=True \
-                  --full_observability=False \
+                  --full_observability=True \
                   --finetune_auxiliary_coefficient_intermediate_goal_probabilities=1. \
                   --finetune_auxiliary_coefficient_final_goal_probabilities=1. \
                   --finetune_auxiliary_coefficient_obstacle_probabilities=0.1 \

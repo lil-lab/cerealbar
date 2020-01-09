@@ -109,3 +109,5 @@ venv.bak/
 agent/experiments/
 
 *.app
+
+*.swp

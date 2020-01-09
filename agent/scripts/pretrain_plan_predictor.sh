@@ -12,4 +12,4 @@ CUDA_VISIBLE_DEVICES=0 python -m agent.scripts.main \
                   --pretrain_auxiliary_coefficient_obstacle_probabilities=0.1 \
                   --pretrain_auxiliary_coefficient_avoid_probabilities=0.1 \
                   --pretrain_auxiliary_coefficient_trajectory_distribution=0.04 \
-                  --full_observability=False
+                  --full_observability=True

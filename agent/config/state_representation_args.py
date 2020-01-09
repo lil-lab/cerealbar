@@ -70,6 +70,9 @@ class StateRepresentationArgs(args.Args):
         self._observability_refresh_rate = parsed_args.observability_refresh_rate
         self._observation_memory_size = parsed_args.observation_memory_size
 
+        if not self._full_observability:
+            raise ValueError('Partial observability is currently under development and not supported.')
+
         super(StateRepresentationArgs, self).interpret_args(parsed_args)
 
     def __str__(self) -> str:
