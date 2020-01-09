@@ -55,17 +55,19 @@ def replay_game(game_data: Dict, game_arguments: game_args.GameArgs, game_server
             game.send_command(action['instruction'])
         elif action['type'] == 'movement':
             if action['move_id'] >= 0:
-                if action['character'] == 'Human':
+                if action['character'] == 'Leader':
+                #if action['character'] == 'Human':
                     game.execute_leader_action(agent_actions.AgentAction(action['action']))
-                elif action['character'] == 'Agent':
+                elif action['character'] == 'Follower':
+                #elif action['character'] == 'Agent':
                     game.execute_follower_action(agent_actions.AgentAction(action['action']))
                 else:
-                    raise ValueError('Unrecognized player type: ' + action['player'])
+                    #raise ValueError('Unrecognized player type: ' + action['player'])
+                    raise ValueError('Unrecognized player type: ' + action['character'])
         elif action['type'] == 'finish command':
             game.execute_follower_action(agent_actions.AgentAction.STOP)
         elif action['type'] == 'end turn':
             game.end_turn()
-
     return game.get_score()
 
 
