@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d146ddb62751000489b3fd83ae1da503, type: 3}
+  m_Name: Trees2.0
+  m_EditorClassIdentifier: 
+  prefabs:
+  - {fileID: 1000010555260820, guid: 4f1cb246cc43a86499fa15409228e4c2, type: 2}
+  - {fileID: 1000011374561250, guid: 39f3fb422f5c440458d37c32f3e1ee2c, type: 2}
+  - {fileID: 1000013357305646, guid: 1afb384038eb2d14c95e87bd5066b93c, type: 2}
+  - {fileID: 1000010820178534, guid: 5e4da5d29e2cc3e4cb3af1989af028d1, type: 2}
+  - {fileID: 1000012813170466, guid: 1d7c0e82241ef9c42880470afcebf285, type: 2}
+  - {fileID: 1000011816558680, guid: 34c0dca502e38474cb18d936af53815c, type: 2}
+  - {fileID: 1000013914375452, guid: c0c3e3990d4a04b4bbec613f34ec34e7, type: 2}
+  - {fileID: 1000010964093472, guid: 742ffc46b59aead4681cce6249469696, type: 2}
+  - {fileID: 1000012973982250, guid: a6b52e54ff2f7834fa116e8dd168afac, type: 2}
+  - {fileID: 1000010998238436, guid: 47a755c0f37b71941927e78d02b0ce00, type: 2}
+  - {fileID: 1000013816699952, guid: a5dbf915a17704b419f123fcc5521440, type: 2}
+  - {fileID: 1000011168467970, guid: bcdf46ed1bd918c43a807c278515ec27, type: 2}
+  - {fileID: 1000010193612126, guid: 5f51fc713e480be4cb90a367be3fd3de, type: 2}
+  - {fileID: 1000012486506018, guid: 43112541724b2854aae897774d71b073, type: 2}
+  - {fileID: 1000011359340144, guid: 15fe8fe8baba70b4fb205558f136ce83, type: 2}
+  - {fileID: 1000013694436724, guid: 4066580718f97f049b91bab41b43fd96, type: 2}
+  - {fileID: 1000013939511548, guid: 893d8787b31a55d459d4bbbb9a75574b, type: 2}

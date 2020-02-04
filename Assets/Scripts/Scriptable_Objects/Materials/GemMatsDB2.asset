@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 661d7f6afba1e0742b5f8e4629406c84, type: 3}
+  m_Name: GemMatsDB2
+  m_EditorClassIdentifier: 
+  materials:
+  - {fileID: 2100000, guid: 004b5fe7c6df291489beb15ba6165262, type: 2}
+  - {fileID: 2100000, guid: 66daa6e0b77f75c4aa26eb207505996f, type: 2}
+  - {fileID: 2100000, guid: b63765dc5cea01a49af6e0ece3645122, type: 2}
+  - {fileID: 2100000, guid: 13adceb43743526438a9a76081cd1fc2, type: 2}
+  - {fileID: 2100000, guid: f53e96693fa827d4b92535e7688d90fe, type: 2}
+  - {fileID: 2100000, guid: 97d98d9599cbc134eb8fe2ed9551168a, type: 2}
+  - {fileID: 2100000, guid: cf9e7a145f50e574b9eebe18d0644e1a, type: 2}

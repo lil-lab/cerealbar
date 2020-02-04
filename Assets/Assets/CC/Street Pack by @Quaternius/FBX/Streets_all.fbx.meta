@@ -1,0 +1,184 @@
+fileFormatVersion: 2
+guid: 07f337227c82403479f57575a2014673
+timeCreated: 1521573626
+licenseType: Free
+ModelImporter:
+  serializedVersion: 21
+  fileIDToRecycleName:
+    100000: Street_3Way
+    100002: Street_3Way_2
+    100004: Street_4Way
+    100006: Street_4Way_2
+    100008: Street_Bridge
+    100010: Street_Bridge_Underpass
+    100012: Street_Bridge_Water
+    100014: Street_Curve
+    100016: Street_Deadend
+    100018: Street_Elevated
+    100020: Street_Empty
+    100022: Street_Ramp_Bridge.001
+    100024: Street_Ramp_Water.000
+    100026: Street_Ramp_Water.001
+    100028: Street_RampElevated
+    100030: Street_RampElevated.001
+    100032: Street_Straight
+    100034: Street_Straight.001
+    100036: Street_Straight.002
+    100038: Street_Water
+    100040: //RootNode
+    400000: Street_3Way
+    400002: Street_3Way_2
+    400004: Street_4Way
+    400006: Street_4Way_2
+    400008: Street_Bridge
+    400010: Street_Bridge_Underpass
+    400012: Street_Bridge_Water
+    400014: Street_Curve
+    400016: Street_Deadend
+    400018: Street_Elevated
+    400020: Street_Empty
+    400022: Street_Ramp_Bridge.001
+    400024: Street_Ramp_Water.000
+    400026: Street_Ramp_Water.001
+    400028: Street_RampElevated
+    400030: Street_RampElevated.001
+    400032: Street_Straight
+    400034: Street_Straight.001
+    400036: Street_Straight.002
+    400038: Street_Water
+    400040: //RootNode
+    2300000: Street_3Way
+    2300002: Street_3Way_2
+    2300004: Street_4Way
+    2300006: Street_4Way_2
+    2300008: Street_Bridge
+    2300010: Street_Bridge_Underpass
+    2300012: Street_Bridge_Water
+    2300014: Street_Curve
+    2300016: Street_Deadend
+    2300018: Street_Elevated
+    2300020: Street_Empty
+    2300022: Street_Ramp_Bridge.001
+    2300024: Street_Ramp_Water.000
+    2300026: Street_Ramp_Water.001
+    2300028: Street_RampElevated
+    2300030: Street_RampElevated.001
+    2300032: Street_Straight
+    2300034: Street_Straight.001
+    2300036: Street_Straight.002
+    2300038: Street_Water
+    3300000: Street_3Way
+    3300002: Street_3Way_2
+    3300004: Street_4Way
+    3300006: Street_4Way_2
+    3300008: Street_Bridge
+    3300010: Street_Bridge_Underpass
+    3300012: Street_Bridge_Water
+    3300014: Street_Curve
+    3300016: Street_Deadend
+    3300018: Street_Elevated
+    3300020: Street_Empty
+    3300022: Street_Ramp_Bridge.001
+    3300024: Street_Ramp_Water.000
+    3300026: Street_Ramp_Water.001
+    3300028: Street_RampElevated
+    3300030: Street_RampElevated.001
+    3300032: Street_Straight
+    3300034: Street_Straight.001
+    3300036: Street_Straight.002
+    3300038: Street_Water
+    4300000: Street_Water
+    4300002: Street_Ramp_Bridge.001
+    4300004: Street_Ramp_Water.000
+    4300006: Street_Ramp_Water.001
+    4300008: Street_RampElevated.001
+    4300010: Street_RampElevated
+    4300012: Street_Straight.002
+    4300014: Street_Straight.001
+    4300016: Street_Bridge
+    4300018: Street_Bridge_Underpass
+    4300020: Street_Bridge_Water
+    4300022: Street_3Way_2
+    4300024: Street_4Way_2
+    4300026: Street_Deadend
+    4300028: Street_Elevated
+    4300030: Street_Curve
+    4300032: Street_Empty
+    4300034: Street_3Way
+    4300036: Street_4Way
+    4300038: Street_Straight
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: 
+    rootMotionBoneRotation: {x: 0, y: 0, z: 0, w: 1}
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 0
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
