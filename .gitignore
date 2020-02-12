@@ -111,3 +111,12 @@ agent/experiments/
 *.app
 
 *.swp
+
+# Game things
+game/Library/PlayerDataCache/*
+game/Library/ShaderCache/*
+game/Library/ShaderCache.db
+game/Library/il2cpp_cache/*
+game/Library/*.log
+game/Library/webgl_cache/*
+game/Temp/*
