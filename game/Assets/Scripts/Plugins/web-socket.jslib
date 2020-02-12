@@ -14,7 +14,7 @@ var WebSocketPlugin = {
 
     gVar.workerId = "";
     if ("workerId" in param) {
-        gVar.workerId = param["workerId"];
+        gVar.workerId = md5(param["workerId"]);
     }
 
 
