@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=yes">
+  <title>Cereal Bar Game</title>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/custom.js') }}"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/reset.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+</head>
+
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-warning fixed-top blue">
+    <a class="navbar-brand" href="#">Cereal Bar Game</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor01" aria-controls="navbarColor01" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarColor01">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item active">
+          <a class="nav-link" href="static/html/instructions.html" target="_blank">Instructions (opens in a new tab)</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  <div class="container-fluid">
+  <center>
+  <div id="custom-frame">
+  <iframe src="{{ url_for('static', filename='Release/index.html') }}" scrolling="no" allowfullscreen id="game-frame"></iframe>
+  </div>
+  </center>
+
+  <div class="container">
+    <h1 id="leaderboard">Leaderboard</h1>
+    <table class="table table-hover tabled-striped">
+      <thead>
+      <tr>
+        <th scope="col">Place</th>
+        <th scope="col">Score</th>
+      </tr>
+      </thead>
+      <tbody>
+      {% for game in leaders %}
+      <tr>
+        <td>{{game[0]}}</td>
+        <td>{{game[1]}}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+    <script>
+        setInterval(function() {
+            if (typeof TOTAL_MEMORY !== 'undefined') {
+                try {
+                    var totalMem = TOTAL_MEMORY/1024.0/1024.0;
+                    var usedMem = (TOTAL_STACK + (STATICTOP - STATIC_BASE) +
+                                  (DYNAMICTOP - DYNAMIC_BASE))/1024.0/1024.0;
+                    console.log('Memory stats - used: ' + Math.ceil(usedMem) + 'M' +
+                                ' free: ' + Math.floor(totalMem - usedMem) + 'M');
+                } catch(e) {}
+            }
+        }, 5000);
+    </script>
+  </div>
+</body>
+</html>

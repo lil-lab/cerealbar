@@ -51,9 +51,10 @@ public class StartUIControl : BasicUIControl
         backgroundImage.material.SetColor("_Color2", lightBlue);
         audioSource = GetComponent<AudioSource>();
         Time.timeScale = 1;
-        lobbyButton.interactable = false;
-        leaderQualBtn.interactable = false;
-        followerQualBtn.interactable = false;
+        lobbyButton.interactable = true;
+        leaderQualBtn.interactable = true;
+        followerQualBtn.interactable = true;
+        UIDButton.interactable = false;
     }
 
     void OnEnable()

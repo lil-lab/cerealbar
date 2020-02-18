@@ -15,6 +15,7 @@ var WebSocketPlugin = {
     gVar.workerId = "";
     if ("workerId" in param) {
         gVar.workerId = md5(param["workerId"]);
+        console.log("Set worker ID as " + gVar.workerId);
     }
 
 
