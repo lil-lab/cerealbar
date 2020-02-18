@@ -121,3 +121,4 @@ game/Library/*.log
 game/Library/webgl_cache/*
 game/Temp/*
 webapp/static/
+game/Library/metadata/
