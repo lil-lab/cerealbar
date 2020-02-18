@@ -114,6 +114,7 @@ agent/experiments/
 
 # Game things
 webapp/static/
+mturk/worker_ids.txt
 
 # From Github's gitignore
 # This .gitignore file should be placed at the root of your Unity project directory
