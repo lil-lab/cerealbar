@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=yes">
+  <title>Cereal Bar Game</title>
+
+  <link rel="stylesheet" href="css/basic.css">
+
+</head>
+<body>
+
+    <button class="collapsible">Basic Gameplay</button>
+    <div class="content">
+        <h5>Objective</h5>
+        <b>Your goal is to work with your partner to collect as many sets of cards as possible before you run out of turns.</b>
+        <li>This is a two-player game. One player is a <em>Leader</em> and one is a <em>Follower</em>.</li>
+        <li>Your role doesn't change throughout the game, and is randomly assigned when a game starts.</li>
+        <li>As a Leader, you will plan which sets to collect, send commands to your partner, and help collect sets by moving.</li>
+        <li>As a Follower, you will follow the Leader's commands to the best of your abilities by moving around.</li>
+
+        <h5>Startup</h5>
+        To start playing:
+
+        <ol>
+        <li>Enter the unique ID you were given in the HIT page.</li>
+        <li>Make the game fullscreen by pressing the button in the lower righthand corner.</li>
+        <li>Click "Find Partner!".</li>
+        <li>When you're matched with a partner, the "Ready to Start Game" button will appear. Press it once you're ready, and don't leave the tab after that!</li>
+        <li>If your partner presses the button before you, and you're not focused on the tab, an audio notification will play reminding you to switch to the tab.</li>
+        <li>Once both players say they're ready, the game will start!</li>
+        </ol>
+
+        <h5>Cards and sets</h5>
+        <ul>
+        <li>To <em>select</em> or <em>deselect</em> a card, walk over it.</li>
+        <li>To form a valid set, exactly three of the cards should be selected, and they each have to have a different:
+        <ul>
+        <li>number of items</li>
+        <li>shape</li>
+        <li>color</li>
+        </ul>
+        </li>
+        <li>If the cards have a <span><strong>red</strong></span> outline, that means the set is invalid: two or more of the selected cards share the same number, shape, or color.</li>
+        <li><b>Followers can't see red outlines of cards!</b></li>
+        <li>If the selected cards are invalid, you can always unselect cards until you make a valid set.</li>
+        <li>Once the selected cards are valid:
+        <ul>
+        <li>The selected cards will have a <span><strong>green</strong></span> outline.</li>
+        <li>The selected cards will disappear, and three new cards will appear to replace them.</li>
+        <li>You'll receive one point.</li>
+        <li>You'll also receive extra turns so that you can collect more sets.</li>
+        </ul>
+        </li>
+        </ul>
+
+        <h5>Turns and moving</h5>
+        <p>You and your partner will take turns moving.</p>
+        <ul>
+        <li>The background of the game will be <span><strong>green</strong></span> if it's your turn, and <span><strong>red</strong></span> if it's your partner's turn.</li>
+        <li>During your turn:
+        <ul>
+        <li>Only <em>you</em> can move.</li>
+        <li>You have a limited number of moves you can complete in your turn (Leader: 6 moves; Follower: 15 moves).</li>
+        <li>You have a limited number of time before your turn ends (Leader: 60 seconds, Follower: 30 seconds).</li>
+        <li>Your turn will end automatically if the time expires, or, if you're the Follower, if you use too many moves.</li>
+        </ul>
+        </li>
+        <li>If you are the Leader, you can end your turn early by pressing the "End Turn" button, or pressing the <em>tab</em> key.</li>
+        <li>The game will end when you and your partner run out of turns.</li>
+        </ul>
+        <p>Use your arrow keys to move around the map.</p>
+        <ul>
+        <li>Walking (forward or backward) or rotating (left or right) will cost you one move.</li>
+        <li>You can't walk on water or mountains, or through obstacles like trees.</li>
+        </ul>
+
+        <h5>Commands</h5>
+        <p>Commands are viewed one-by-one by the Follower. Commands can have one of three prefixes:</p>
+        <ul>
+        <li>[DONE] The command has been completed by the Follower.</li>
+        <li>[CURRENT] This is the command that the Follower is currently following.</li>
+        <li>[NOT SENT] Commands that the Leader has sent which are not yet visible to the Follower. Only the Leader can see these commands.</li>
+        </ul>
+        <p>When the Follower marks a command as finished, its status changes from [CURRENT] to [DONE] for both players, and the oldest [NOT SENT] command becomes visible to the Follower.</p>
+
+        <h5>Instructions for Leaders</h5>
+        <p>As a Leader, you're responsible for:</p>
+        <ul>
+        <li>Deciding which cards you should select to form the next set.</li>
+        <li>Move around to select and unselect cards.</li>
+        <li>Send commands to the Follower to tell them where to go.</li>
+        </ul>
+        <p>You can send commands to the Follower using the "Send Commands" box.</p>
+        <ul>
+        <li>Press <em>Enter</em>/<em>Return</em>, or the "Send" button, to send a command.</li>
+        <li>Keep in mind that the Follower can only see the objects in front of them. Use the Follower View (lower right hand corner) to see what they can see.</li>
+        <li>The Follower receives your commands one-by-one, and has to finish each before moving onto the next one.
+        <ul>
+        <li>All commands that have already been followed are marked with [DONE] at the beginning.</li>
+        <li>The follower can <b>only</b> see the [DONE] or [CURRENT] commands.</li>
+        <li>The follower <b>cannot</b> see any commands marked as [NOT SENT]. These will be sent when the Follower marks the [CURRENT] command as finished.</li>
+        <li>If all commands are marked as [DONE], the Follower has followed all of the commands, so you will need to write a new one in order for them to continue playing.</li>
+        </ul>
+        </li>
+        <li>Use only <em>natural sentences</em> when writing your commands:
+        <ul>
+        <li>Good: Go down the path to get the three red stars card.</li>
+        <li>Bad: 5 forward, 1 right, 1 forward.</li>
+        </ul>
+        </li>
+        </ul>
+        <p>You can toggle the camera view by pressing the "Camera" button. The overhead view will allow you to see cards hidden behind other objects.</p>
+
+        <h5>Instructions for Followers</h5>
+        <p>As a Follower, you're responsible for following the Leader's commands to the best of your abilities by moving around the game board. <strong>Do only what the Leader commands you to do -- don't try to plan your own strategy!</strong></p>
+        <p>You will receive and follow commands one-by-one.</p>
+        <ul>
+        <li>You can only see the command you are currently following, and earlier commands.</li>
+        <li>All previously-followed commands are marked with [DONE] at the beginning.</li>
+        <li>If all commands are marked as [DONE], there are no more commands from the Leader right now.</li>
+        <ul>
+        <li>When you've followed a command, press the "Finish Command" button.<li>
+        <li>If there is another command to follow, it will appear in the Command Window.</li>
+        <li>If there aren't any more commands to follow, your turn will end.</li>
+        <li><em>Take care in when you mark commands as finished -- if you mark all commands as finished before moving, your turn will end and you won't be able to move!</em></li>
+        </ul>
+        </li>
+        <li>If you don't finish all of the commands during your turn, don't worry -- you can continue working on them in the next turn.</li>
+        </ul>
+    </div>
+
+    <button class="collapsible">Advice for Leaders</button>
+    <div class="content">
+        <h5>Understand what makes a valid set</h5>
+        <p>A valid set has <b>three distinct colors, three distinct shapes, and three different numbers.</b></p>
+
+        <h5>Keep in mind the follower's perspective</h5>
+        Make sure your commands can be followed by the Follower.
+        <ul>
+        <li>Use the Follower View (lower righthand corner) to see what the Follower can see.</li>
+        <li>The follower doesn't have access to the entire game board, so they can't understand commands like "Move North".</li>
+        </ul>
+
+        <h5>The Follower follows commands one-by-one</h5>
+        <p>The Follower doesn't have access to all of the commands you send -- only the ones they have completed already, or are currently completing.</p>
+        <ul>
+        <li>Try your best to avoid making mistakes when giving a command, or the Follower will have to undo an earlier command and waste moves.</li>
+        <li>The Follower can't see any commands marked as [NOT SENT].</li>
+        <li>Avoid commands that can't be followed, like "Thanks!" or "Sorry!".</li>
+        </ul>
+
+        <h5>Make sure your partner always has a command to follow</h5>
+        <p>If you end your turn without giving a new command for them to follow, their turn will automatically be skipped. Make sure you send them a command before the time runs out for your turn!</p>
+    </div>
+
+    <button class="collapsible">Troubleshooting</button>
+    <div class="content">
+        <h5>My player won't move when I use the arrow keys</h5>
+        <ul>
+        <li>Make sure the game background is green (if it's red, it's not your turn to move).</li>
+        <li>Click in the game and try moving again.</li>
+        </ul>
+
+        <h5>I can't tell the shapes or colors apart</h5>
+        <p>First, make sure you are using Fullscreen mode. If you are still having trouble, please leave feedback (and email a screenshot if you can).</p>
+
+        <h5>[Leaders only] The Follower won't listen to my commands</h5>
+        <p>It's possible that the Follower didn't finish any commands yet. Make sure that the commands you have sent are marked as [DONE] or [CURRENT]. Any commands marked as [NOT SENT] are not visible to the Follower. It's likely that the Follower hasn't marked commands a finished. If this is happening, please leave feedback about your partner.</p>
+
+        <h5>[Followers only] I'm not getting any new commands from the Leader</h5>
+        <p>Make sure that you have finished the [CURRENT] command so that it is marked [DONE]. Once you do that, any new command the Leader has sent will appear.</p>
+
+        <h5>[Followers only] My or my partner's turn was skipped</h5>
+        <p>If the Follower's turn was skipped, that means the Leader didn't give any new commands that the Follower could follow.</p>
+        <ul>
+        <li><em>Leaders</em>: make sure that you give a new command during each turn, even if it's something simple -- or else you will skip your partner's turn.</li>
+        <li><em>Followers</em>: if many of your turns were skipped because the Leader didn't write commands, please note this in the feedback for your partner.</li>
+        </ul>
+
+        <h5>[Followers only] I can't follow a command</h5>
+        <p>If you can't follow a command because it doesn't make sense, click "Finish Command" when you are sure that it is a mistake and cannot find another solution. It's possible that the Leader issued a new command correcting the previous one.</p>
+
+        <h5>My partner quit</h5>
+        <ul>
+        <li>If your partner quit right after the game loaded, you can leave feedback about that in the HIT page (if we notice workers doing this a lot, we will revoke their qualification).</li>
+        <li>If your partner quit during the game, we'll award you and your partner a bonus for the number of sets you've collected so far.</li>
+        </ul>
+    </div>
+
+    <button class="collapsible">Game Policies</button>
+    <div class="content">
+        <h5>Bonus system</h5>
+        <ul>
+        <li>For each game you play, you'll receive a <em>base pay</em> as well as a <em>bonus pay</em> for each point you and your partner earn throughout the game.</li>
+        <li>Our base pay is <strong>$0.15</strong>.</li>
+        <li>Our bonus pay is per point, and increases as your score increases.</li>
+            <ul>
+        <li>For the 1st set, you will receive a bonus of $0.15.</li>
+        <li>For the 2nd and 3rd sets, you will receive a bonus of $0.25.</li>
+        <li>For the 4th and 5th sets, you will receive a bonus of $0.30.</li>
+        <li>For the 6th and 7th sets, you will receive a bonus of $0.35.</li>
+        <li>For the 8th -- 11th sets, you will receive a bonus of $0.40.</li>
+        <li>For the 12th and 13th sets, you will receive a bonus of $0.50.</li>
+        <li>For the 14th set and any additional sets, you will receive a bonus of $0.60.</li>
+    </ul>
+    <li>For example, if you score 10 points, you will receive a bonus of $3.30.</li>
+        </ul>
+
+        <h5>Quitting the game before it ends</h5>
+        <ul>
+        <li>If you quit the game due to technical issues (e.g., due to internet cutting out), we'll still award the bonus to you and your partner for the amount of sets you've collected so far in the game.</li>
+        <li>If we notice a worker consistently quitting the game before the first few turns, we may revoke that worker's qualification. This includes quitting when the roles are assigned (e.g., if you want to avoid a certain role).</li>
+        </ul>
+
+        <h5>Waiting for partners</h5>
+        <p>If you have to wait more than 5 minutes for a partner, you should submit the HIT and return any other HITs you have accepted in the batch. This will usually only happen when the batch has died down and there are no other workers around. We don't want you wasting your time when you are the only one online!</p>
+        
+        <h5>Revoking qualifications</h5>
+        <p>To keep games running smoothly, after each batch, we will review the feedback written about each worker, as well as the gameplay, and determine whether a worker should have their qualification revoked. In general, the vast majority of workers will not be dequalified, and we will carefully consider each potential dequalification. In the last round, around 10% of workers were dequalified, and each of these workers had problems with several of the following criteria:</p>
+        <ul>
+        <li>The ratings given by your partners</li>
+        <li>Whether you are moving to collect cards (as a Leader)</li>
+        <li>Whether you are incorrectly marking commands as finished (as a Follower)</li>
+        <li>Whether you are quitting the game early</li>
+        <li>Workers with a very high rate of zero-point games</li>
+        </ul>
+
+    </div>
+
+    <button class="collapsible">Contact</button>
+    <div class="content">
+    <p>You can always email us at <a href="mailto:lic.cs.cornell@gmail.com">lic.cs.cornell@gmail.com</a> for any questions you have about the game. we'll do our best to respond quickly. We also monitor the Turkerview and MTurkCrowd forums (search for "cereal bar") and are happy to chat there about the game or any suggestions/concerns you have.</p>
+    </div>
+    
+
+</body>
+</html>
+
+  <script>
+    var coll = document.getElementsByClassName("collapsible");
+    var i;
+
+    for (i = 0; i < coll.length; i++) {
+      coll[i].addEventListener("click", function() {
+        this.classList.toggle("active");
+        var content = this.nextElementSibling;
+        if (content.style.maxHeight){
+          content.style.maxHeight = null;
+        } else {
+          content.style.maxHeight = content.scrollHeight + "px";
+        }
+      });
+    }
+  </script>

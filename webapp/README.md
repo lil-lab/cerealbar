@@ -1,9 +1,13 @@
 # Starting and testing the server
 
 1. Build the WebGL version of the game (see `game/` for instructions). Name it `Release`. The binary should go in 
-`webapp/static/`.
+a directory ou create called `webapp/static/`.
+
 1. Ensure you have a worker ID file. For testing purposes, you can create an empty file by doing `touch 
 mturk/worker_ids.txt`.
+
+1. Create a virtual environment with the requirements listed in `requirements.txt`.
+
 1. Initialize the game database.
 
     `python -m webapp.init_db mturk/worker_ids.txt`

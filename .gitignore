@@ -113,7 +113,7 @@ agent/experiments/
 *.swp
 
 # Game things
-webapp/static/
+webapp/static/Release
 mturk/worker_ids.txt
 
 # From Github's gitignore
