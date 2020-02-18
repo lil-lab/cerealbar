@@ -1,7 +1,7 @@
 # Setting up the Unity editor
 
 1. Open the project in the this directory (`game`). It's important to open in this directory as all of the project 
-files (e.g., settings) are included in this directory
+files (e.g., settings) are included in this directory.
 1. Open the scene:
     * `File > Open Scene`
     * Open `game/Assets/Scenes/Game.unity`
