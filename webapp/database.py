@@ -179,15 +179,20 @@ def write_game_start(game):
     db = sqlite3.connect(DATABASE_NAME)
     c = db.cursor()
 
-    q = 'INSERT INTO games (gameId, seed, humanSid, agentSid, numCards, startTime, usingAgent) ' \
-        'VALUES (?,?,?,?,?,?,?)'
-    t = (game.game_id,
-         game.seed,
-         game.human.sid,
-         game.agent.sid,
-         game.num_cards,
-         current_time,
-         1 if game.using_agent else 0)
+    q = (
+        "INSERT INTO games (gameId, seed, humanSid, agentSid, numCards, startTime, usingAgent, instructionCostStep) "
+        "VALUES (?,?,?,?,?,?,?,?)"
+    )
+    t = (
+        game.game_id,
+        game.seed,
+        game.human.sid,
+        game.agent.sid,
+        game.num_cards,
+        current_time,
+        1 if game.using_agent else 0,
+        game.instruction_cost_step,
+    )
     c.execute(q, t)
 
     db.commit()

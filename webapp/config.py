@@ -91,7 +91,7 @@ class GameData:
     human_id:   CerealRequest
     agent_id:   CerealRequest
     """
-    def __init__(self, seed, game_id, num_cards, human, agent, using_agent):
+    def __init__(self, seed, game_id, num_cards, instruction_cost_step, human, agent, using_agent):
         self.seed = seed
         self.game_id = game_id
         self.num_cards = num_cards
@@ -104,6 +104,7 @@ class GameData:
         self.human_quit = False
         self.agent_quit = False
         self.using_agent = using_agent
+        self.instruction_cost_step = instruction_cost_step
 
     def human_room(self):
         return room_name("Human", self.game_id)

@@ -42,6 +42,7 @@ var WebSocketPlugin = {
     gVar.character = null;
     gVar.turnId = 0;
     gVar.qId = "";
+    gVar.instructionCostStep=-1;
 
     // Received when an initial connection is recognized as a worker.
     gVar.webSocket.on('recognizedWorker', function() {
@@ -83,12 +84,14 @@ var WebSocketPlugin = {
       gVar.gameId = json["gameId"];
       gVar.seed = json['seed'];
       gVar.numCards = json['num_cards'];
+      gVar.instructionCostStep = json["instructionCostStep"];
 
       // For now, completely disable fast paths.
       gameInstance.SendMessage('GameManager','SetPaths','Normal');
       gameInstance.SendMessage('GameManager', 'SetNumCards', gVar.numCards);
       gameInstance.SendMessage('GameManager', 'SetSeed', gVar.seed.toString());
       gameInstance.SendMessage('GameManager', 'SetCharacter', gVar.character);
+      gameInstance.SendMessage('GameManager', 'SetInstructionCost', gVar.instructionCostStep);
     });
 
     // Received from server when initially matched with a partner for gameplay.

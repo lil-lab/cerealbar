@@ -91,6 +91,11 @@ public class Startup : MonoBehaviour
         Int32.TryParse(s, out x);
         seed = x;
     }
+    
+    public void SetInstructionCost(int cost)
+    {
+        turnController.instructionCostMove = cost == 1;
+    }
 
     public void SetCharacter(string ch)
     {
