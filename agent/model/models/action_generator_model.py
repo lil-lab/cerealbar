@@ -23,6 +23,7 @@ from agent.evaluation import plan_metrics
 from agent.learning import auxiliary
 from agent.learning import batch_util
 from agent.learning import sampling
+from agent.learning.plan_losses import SpatialSoftmax2d
 from agent.model.models import plan_predictor_model
 from agent.model.modules import map_distribution_embedder
 from agent.model.modules import word_embedder
@@ -40,6 +41,50 @@ if TYPE_CHECKING:
     from agent.evaluation import evaluation_logger
     from agent.environment import state_delta
     from agent.simulation import game
+
+
+def normalize_trajectory_distribution(map_distribution: torch.Tensor,
+                                      time_scores: Optional[torch.Tensor] = None,
+                                      set_max: bool = False) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    batch_size, time, width, height = map_distribution.size()
+    if time > 1:
+        if time_scores is None:
+            flat_distribution: torch.Tensor = map_distribution.view(batch_size, -1)
+
+            # Do a softmax over this, then return the reshaped distribution.
+            if set_max:
+                raise ValueError('Setting to max is not possible for time-normalized distributions.')
+            return nn.Softmax(dim=1)(flat_distribution).view(batch_size, time, width, height), None
+        else:
+            normalized_maps: List[torch.Tensor] = list()
+            normalized_times: List[torch.Tensor] = list()
+
+            for i in range(time):
+                # Map slice will be of size B x (H * W)
+                map_slice: torch.Tensor = map_distribution[:, i, :, :].view(batch_size, -1)
+                time_score_slice: torch.Tensor = time_scores[:, i].view(batch_size, -1)
+
+                concat_dist = torch.cat((map_slice, time_score_slice), dim=1)
+
+                if set_max:
+                    if batch_size > 1:
+                        raise ValueError('Need to make sure this computation is correct for batch size >1')
+                    full_distribution = torch.zeros(concat_dist.size())
+                    max_indices = concat_dist.max(dim=1)[1]
+                    full_distribution[:, max_indices] = 1.
+                else:
+                    full_distribution: torch.Tensor = nn.Softmax(dim=1)(concat_dist)
+
+                normalized_maps.append(full_distribution[:, :-1].view(batch_size, 1, width, height))
+                normalized_times.append(full_distribution[:, -1].view(batch_size, 1))
+            return torch.cat(tuple(normalized_maps), dim=1), torch.cat(tuple(normalized_times), dim=1)
+    else:
+        if set_max:
+            raise ValueError('Setting to max is not possible for map-normalized distributions.')
+        if time_scores is not None:
+            raise ValueError('There should be no time scores when not using timewise distributions.')
+        # Do a simple 2D softmax over the distribution.
+        return SpatialSoftmax2d()(map_distribution), None
 
 
 class ActionGeneratorModel(nn.Module):
@@ -724,7 +769,32 @@ class ActionGeneratorModel(nn.Module):
             # If full observability, first compute the distributions, then use them to compute the action sequence.
             if trajectory_distribution is None:
                 if self._end_to_end:
-                    raise NotImplementedError
+                    # Outputs of this should be masked if necessary.
+                    card_distribution, auxiliary_predictions = self._hex_predictor.get_predictions(example)
+
+                    avoid_distribution = None
+                    if auxiliary.Auxiliary.AVOID_LOCS in auxiliary_predictions:
+                        # This has already gone through sigmoid (and mask if masked).
+                        avoid_distribution = auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS].unsqueeze(1)
+
+                    # These need to be normalized -- hex_predictor does not return normalized trajectories.
+                    trajectory_distribution = None
+                    if auxiliary.Auxiliary.TRAJECTORY in auxiliary_predictions:
+                        trajectory_distribution, time_vector = \
+                            normalize_trajectory_distribution(
+                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0],
+                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1].unsqueeze(0)
+                                if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else None)
+
+                    # These are already masked and put through a sigmoid.
+                    if card_distribution is not None:
+                        auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS] = card_distribution.squeeze()
+
+                    obstacle_probabilities = None
+                    if auxiliary.Auxiliary.OBSTACLES in auxiliary_predictions:
+                        # This is already put through a sigmoid.
+                        obstacle_probabilities = auxiliary_predictions[
+                            auxiliary.Auxiliary.IMPASSABLE_LOCS].unsqueeze(1)
                 else:
                     (trajectory_distribution,
                      goal_probabilities,
