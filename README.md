@@ -1,5 +1,3 @@
-# This repo is under construction and the resources described below should be available soon!
-
 # Cereal Bar
 Cereal Bar is a two-player web game designed for studying language understanding agents in collaborative interactions. This repository contains code for the game, a webapp hosting the game, the agent implementation, and recorded interactions in the game. 
 
@@ -95,9 +93,3 @@ To pretrain a plan predictor:
 1. If you would like to change any of the hyperparameters specified in `agent/config`, modify 
 `agent/scripts/pretrain_plan_predictor.sh`.
 1. Run pretraining: `sh agent/scripts/pretrain_plan_predictor.sh`.
-
-## TODO
-
-- [ ] Add a section describing how to do different things with this code. E.g., running the game, or training an agent, etc.
-- [ ] Nicer data browser.
-- [ ] Get the Slack logging working again.
