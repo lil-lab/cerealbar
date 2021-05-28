@@ -770,12 +770,13 @@ class ActionGeneratorModel(nn.Module):
             if trajectory_distribution is None:
                 if self._end_to_end:
                     # Outputs of this should be masked if necessary.
-                    card_distribution, auxiliary_predictions = self._hex_predictor.get_predictions(example)
+                    assert isinstance(self._plan_predictor, plan_predictor_model.PlanPredictorModel)
+                    auxiliary_predictions = self._plan_predictor.get_predictions(example)
 
-                    avoid_distribution = None
+                    avoid_probabilities = None
                     if auxiliary.Auxiliary.AVOID_LOCS in auxiliary_predictions:
                         # This has already gone through sigmoid (and mask if masked).
-                        avoid_distribution = auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS].unsqueeze(1)
+                        avoid_probabilities = auxiliary_predictions[auxiliary.Auxiliary.AVOID_LOCS].unsqueeze(1)
 
                     # These need to be normalized -- hex_predictor does not return normalized trajectories.
                     trajectory_distribution = None
@@ -787,8 +788,7 @@ class ActionGeneratorModel(nn.Module):
                                 if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else None)
 
                     # These are already masked and put through a sigmoid.
-                    if card_distribution is not None:
-                        auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS] = card_distribution.squeeze()
+                    goal_probabilities = auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS].unsqueeze(1)
 
                     obstacle_probabilities = None
                     if auxiliary.Auxiliary.OBSTACLES in auxiliary_predictions:
