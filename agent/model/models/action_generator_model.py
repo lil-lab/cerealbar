@@ -781,11 +781,12 @@ class ActionGeneratorModel(nn.Module):
                     # These need to be normalized -- hex_predictor does not return normalized trajectories.
                     trajectory_distribution = None
                     if auxiliary.Auxiliary.TRAJECTORY in auxiliary_predictions:
-                        trajectory_distribution, time_vector = \
+                        trajectory_distribution = \
                             normalize_trajectory_distribution(
                                 auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0],
                                 auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1].unsqueeze(0)
-                                if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else None)
+                                if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else
+                                None).unsqueeze(0)
 
                     # These are already masked and put through a sigmoid.
                     goal_probabilities = auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS].unsqueeze(1)
@@ -794,7 +795,7 @@ class ActionGeneratorModel(nn.Module):
                     if auxiliary.Auxiliary.OBSTACLES in auxiliary_predictions:
                         # This is already put through a sigmoid.
                         obstacle_probabilities = auxiliary_predictions[
-                            auxiliary.Auxiliary.IMPASSABLE_LOCS].unsqueeze(1)
+                            auxiliary.Auxiliary.OBSTACLES].unsqueeze(1)
                 else:
                     (trajectory_distribution,
                      goal_probabilities,
