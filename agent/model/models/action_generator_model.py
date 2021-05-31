@@ -783,10 +783,8 @@ class ActionGeneratorModel(nn.Module):
                     if auxiliary.Auxiliary.TRAJECTORY in auxiliary_predictions:
                         trajectory_distribution = \
                             normalize_trajectory_distribution(
-                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0],
-                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1].unsqueeze(0)
-                                if auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][1] is not None else
-                                None).unsqueeze(0)
+                                # 1 x 25 x 25
+                                auxiliary_predictions[auxiliary.Auxiliary.TRAJECTORY][0]).unsqueeze(0)
 
                     # These are already masked and put through a sigmoid.
                     goal_probabilities = auxiliary_predictions[auxiliary.Auxiliary.FINAL_CARDS].unsqueeze(1)
