@@ -168,8 +168,11 @@ class ActionGeneratorModelWrapper(model_wrapper.ModelWrapper):
                 full_results = action_generator_metrics.execution_accuracies(
                     self, game_arguments, evaluation_arguments, game_examples=list(validation_games.values()),
                     logger=logger)
+                validation_followed_proportion = full_results[metric.Metric.PROPORTION_FOLLOWED_CASCADING]
+                validation_score_proportion = full_results[metric.Metric.PROPORTION_POINTS_CASCADING]
+
                 print(full_results)
-                exit()
+
                 experiment.add_scalar_value('val prop followed', validation_followed_proportion)
                 experiment.add_scalar_value('val prop score', validation_score_proportion)
 
