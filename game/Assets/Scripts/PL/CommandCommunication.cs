@@ -241,6 +241,11 @@ public class CommandCommunication : MonoBehaviour
         } else if (!IsInputFieldValid(inputField.text)) {
             return;
         }
+        if (turnController.instructionCostMove && !turnController.HasMoves())
+        {
+            inputField.text = "";
+            return;
+        }
 
         if (inputType == InputType.PLInput)
         {
@@ -264,8 +269,10 @@ public class CommandCommunication : MonoBehaviour
                 {"content", inputText}
             };
             webSocketManager.Send("instruction", strData, null);
+            
+            if (turnController.instructionCostMove)
+                turnController.Movement("Human", LandType.Path);
         }
-
 
         inputField.text = "";
         turnController.endTurnButton.interactable = true;

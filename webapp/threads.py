@@ -81,7 +81,8 @@ def match_human_players():
         game_seed = random.randint(0, pow(2, 30))
         print('game seed: ' + str(game_seed))
         logger.debug('game seed: ' + str(game_seed))
-
+        # 0 means no cost, 1 means cost 1 step
+        instruction_cost_step = 1
         num_cards = 21
 
         character_1 = "Human" if game_seed % 2 == 0 else "Agent"
@@ -90,6 +91,7 @@ def match_human_players():
             game = GameData(game_seed,
                             game_id,
                             num_cards,
+                            instruction_cost_step,
                             human=client_1,
                             agent=client_2,
                             using_agent=False)
@@ -97,6 +99,7 @@ def match_human_players():
             game = GameData(game_seed,
                             game_id,
                             num_cards,
+                            instruction_cost_step,
                             human=client_2,
                             agent=client_1,
                             using_agent=False)
@@ -116,7 +119,8 @@ def match_human_players():
                       {'character': character_1,
                        'gameId': game_id,
                        'seed': game_seed,
-                       'num_cards': num_cards},
+                       'num_cards': num_cards,
+                        'instructionCostStep': instruction_cost_step,},
                       room=client_1.sid)
         socketio.emit('lobbyReady',
                       room=client_1.sid)
@@ -125,7 +129,8 @@ def match_human_players():
                       {'character': character_2,
                        'gameId': game_id,
                        'seed': game_seed,
-                       'num_cards': num_cards},
+                       'num_cards': num_cards,
+                       'instructionCostStep': instruction_cost_step,},
                       room=client_2.sid)
         socketio.emit('lobbyReady',
                       room=client_2.sid)

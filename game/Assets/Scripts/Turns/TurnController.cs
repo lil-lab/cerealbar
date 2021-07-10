@@ -29,7 +29,7 @@ public class TurnController : MonoBehaviour
     public int movesInThisCommand = 0;  // The number of moves that have been used
                                         // To follow this command (TODO: should be
                                         // moved to the command handling code)
-
+    public bool instructionCostMove = false;
     /// UI VARIABLES
     // Number of moves and turns remaining
     public Text moveDisplay;
@@ -219,6 +219,11 @@ public class TurnController : MonoBehaviour
       }
     }
 
+    public bool HasMoves()
+    {
+        return movesRemaining > 0;
+    }
+
     public void NoMoves()
     {
       myHandler.NoMoves();
@@ -379,7 +384,7 @@ public class TurnController : MonoBehaviour
         if (myTurn) {
             if (character == "Human" && Input.GetKeyDown(KeyCode.Tab)) {
                 GiveTurn("Pressed Tab to End Turn");
-            } else if (character == "Agent" && movesRemaining == 0) {
+            } else if (movesRemaining == 0) {
                 GiveTurn("Ran Out of Moves");
             }
         }

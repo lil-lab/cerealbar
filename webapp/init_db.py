@@ -79,7 +79,7 @@ if __name__ == "__main__":
         "propPlacementInfo STRING, cardInfo STRING)")
     c.execute(q)
 
-    q = "CREATE TABLE games (gameId INTEGER, seed INTEGER, humanSid STRING, agentSid STRING, numCards INTEGER, score INTEGER, startTime INTEGER, endTime INTEGER, usingAgent INTEGER)"
+    q = "CREATE TABLE games (gameId INTEGER, seed INTEGER, humanSid STRING, agentSid STRING, numCards INTEGER, score INTEGER, startTime INTEGER, endTime INTEGER, usingAgent INTEGER, instructionCostStep INTEGER)"
     c.execute(q)
 
     q = "CREATE TABLE commandFinishingActions (gameId INTEGER, instructionId INTEGER, gameTime INTEGER, serverTime INTEGER)"
