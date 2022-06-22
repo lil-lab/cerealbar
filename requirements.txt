@@ -4,7 +4,7 @@ eventlet==0.31.0
 Flask==1.1.1
 Flask-SocketIO==4.2.1
 nltk==3.4.5
-numpy==1.17.3
+numpy==1.22.0
 progressbar2==3.39.2
 pycrayon==0.5
 slackclient==2.2.1
