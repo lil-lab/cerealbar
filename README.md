@@ -3,7 +3,7 @@ Cereal Bar is a two-player web game designed for studying language understanding
 
 The game, data, and agent implementation (architecture, learning, and evaluation) are described in the following paper:
 
-Executing instructions in situated collaborative interactions. Alane Suhr, Claudia Yan, Jacob Schluger, Stanley Yu, Hadi Khader, Marwa Mouallem, Iris Zhang, and Yoav Artzi. To appear in EMNLP 2019. Print coming soon!
+Executing instructions in situated collaborative interactions. Alane Suhr, Claudia Yan, Charlotte Schluger, Stanley Yu, Hadi Khader, Marwa Mouallem, Iris Zhang, and Yoav Artzi. To appear in EMNLP 2019. Print coming soon!
 
 ## Setup
 
