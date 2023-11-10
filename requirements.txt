@@ -1,5 +1,5 @@
 requests==2.22.0
-certifi==2018.4.16
+certifi==2022.12.7
 eventlet==0.31.0
 Flask==1.1.1
 Flask-SocketIO==4.2.1
